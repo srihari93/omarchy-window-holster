@@ -1,0 +1,1116 @@
+#!/usr/bin/env python3
+"""
+omarchy-window-holster
+Quake-style drop-down, scratchpad, and edge drawer for any window on Hyprland.
+"""
+
+import sys
+import os
+import json
+import subprocess
+import re
+import signal
+import time
+import threading
+from pathlib import Path
+
+CONFIG_PATH = Path.home() / ".config" / "omarchy" / "holster.json"
+STATE_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
+STATE_PATH = STATE_DIR / "omarchy_holster.json"
+
+DEFAULT_CONFIG = {
+    "position": "top",
+    "width": 100,
+    "height": 40,
+}
+
+# ---------------------------------------------------------------------------
+# Config / State helpers
+# ---------------------------------------------------------------------------
+
+def load_config():
+    if CONFIG_PATH.exists():
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                return {**DEFAULT_CONFIG, **cfg}
+        except Exception:
+            pass
+    return DEFAULT_CONFIG.copy()
+
+def save_config(cfg):
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
+
+def get_live_clients():
+    try:
+        res = subprocess.run(["hyprctl", "-j", "clients"], capture_output=True, text=True, check=True)
+        clients = json.loads(res.stdout) if res.stdout.strip() else []
+        return {c["address"]: c for c in clients}
+    except Exception:
+        return {}
+
+def load_state():
+    live_clients = get_live_clients()
+    state = {
+        "windows": [],
+        "active_addr": None,
+        "last_active_addr": None,
+        "active_index": -1,
+        "window_meta": {},
+        "last_opened_time": 0
+    }
+    raw_windows = []
+    raw_meta = {}
+    last_opened_time = 0
+    active_addr = None
+    last_addr = None
+
+    if STATE_PATH.exists():
+        try:
+            with open(STATE_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                raw_windows = data.get("windows", [])
+                raw_meta = data.get("window_meta", {})
+                last_opened_time = data.get("last_opened_time", 0)
+                active_addr = data.get("active_addr")
+                last_addr = data.get("last_active_addr")
+        except Exception:
+            pass
+
+    valid_windows = [addr for addr in raw_windows if addr in live_clients]
+    valid_meta = {addr: raw_meta[addr] for addr in valid_windows if addr in raw_meta}
+
+    # Auto-adopt any orphaned windows residing in special:holster_* workspaces
+    dirty = (len(valid_windows) != len(raw_windows))
+    for addr, client in live_clients.items():
+        ws_name = client.get("workspace", {}).get("name", "")
+        if ws_name.startswith("special:holster_") and addr not in valid_windows:
+            valid_windows.append(addr)
+            if addr not in valid_meta:
+                valid_meta[addr] = {
+                    "original_workspace": "1",
+                    "original_floating": False
+                }
+            dirty = True
+
+    if active_addr and active_addr not in valid_windows:
+        # Active holster window died or closed while open: restore normal focus!
+        restore_normal_focus()
+        active_addr = None
+
+    if last_addr not in valid_windows:
+        last_addr = valid_windows[-1] if valid_windows else None
+
+    active_idx = valid_windows.index(active_addr) if active_addr else -1
+
+    state = {
+        "windows": valid_windows,
+        "active_addr": active_addr,
+        "last_active_addr": last_addr,
+        "active_index": active_idx,
+        "window_meta": valid_meta,
+        "last_opened_time": last_opened_time
+    }
+    if dirty or not STATE_PATH.exists():
+        save_state(state)
+    return state, live_clients
+
+def save_state(state):
+    try:
+        with open(STATE_PATH, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+    except Exception:
+        pass
+
+# ---------------------------------------------------------------------------
+# Hyprland Lua dispatcher helpers
+# Uses Hyprland 0.56 Lua dispatchers exclusively.
+# Each holstered window is isolated in its own dedicated special workspace:
+#   special:holster_<addr_suffix>
+# This guarantees windows with identical titles (e.g. Chromium new tabs)
+# are treated as completely independent entities with zero collision.
+# ---------------------------------------------------------------------------
+
+def _dispatch(lua_expr):
+    """Execute a Lua dispatcher expression via hyprctl dispatch."""
+    res = subprocess.run(["hyprctl", "dispatch", lua_expr], capture_output=True, text=True)
+    return res.returncode == 0
+
+def window_special_ws(addr):
+    """Return dedicated special workspace name for a window address (100% collision-free)."""
+    clean = addr.replace("0x", "")
+    return f"special:holster_{clean}"
+
+def special_ws_name(addr):
+    """Return the name identifier without special: prefix."""
+    clean = addr.replace("0x", "")
+    return f"holster_{clean}"
+
+def win_float(addr, action="on"):
+    """Float or tile a window by exact address."""
+    return _dispatch(f'hl.dsp.window.float({{ action = "{action}", window = "address:{addr}" }})')
+
+def win_resize(addr, w, h):
+    """Resize window by exact address to pixel dimensions."""
+    return _dispatch(f'hl.dsp.window.resize({{ x = {w}, y = {h}, relative = false, window = "address:{addr}" }})')
+
+def win_move_pos(addr, x, y):
+    """Move floating window by exact address to absolute pixel position."""
+    return _dispatch(f'hl.dsp.window.move({{ x = {x}, y = {y}, relative = false, window = "address:{addr}" }})')
+
+def win_move_to_ws(addr, workspace, follow=False):
+    """Move window by exact address to a workspace. follow=False = silent."""
+    follow_str = "true" if follow else "false"
+    return _dispatch(f'hl.dsp.window.move({{ workspace = "{workspace}", follow = {follow_str}, window = "address:{addr}" }})')
+
+def win_focus(addr):
+    """Focus a window by exact address."""
+    return _dispatch(f'hl.dsp.focus({{ window = "address:{addr}" }})')
+
+def ws_toggle_special(name):
+    """Toggle visibility of a special workspace."""
+    return _dispatch(f'hl.dsp.workspace.toggle_special("{name}")')
+
+def submap_enter(name="holster"):
+    """Enter a Hyprland submap."""
+    return _dispatch(f'hl.dsp.submap("{name}")')
+
+def submap_reset():
+    """Reset / exit Hyprland submap."""
+    return _dispatch('hl.dsp.submap("reset")')
+
+DEFAULT_BINDINGS_LUA = """
+local holster_bin = "omarchy-window-holster"
+
+hl.unbind("SUPER + backslash")
+hl.unbind("SUPER + bracketright")
+hl.unbind("SUPER + bracketleft")
+hl.unbind("SUPER + ALT + backslash")
+hl.unbind("SUPER + SHIFT + backslash")
+
+o.bind("SUPER + backslash", "Window Holster: Toggle", holster_bin .. " toggle")
+o.bind("SUPER + bracketright", "Window Holster: Cycle Forward", holster_bin .. " cycle next")
+o.bind("SUPER + bracketleft", "Window Holster: Cycle Back", holster_bin .. " cycle prev")
+o.bind("SUPER + ALT + backslash", "Window Holster: Toggle Active Window", holster_bin .. " toggle-role")
+o.bind("SUPER + SHIFT + backslash", "Window Holster: Select Window", holster_bin .. " select")
+
+hl.define_submap("holster", function()
+  for i = 1, 9 do
+    hl.unbind(tostring(i), { submap = "holster" })
+    hl.bind(tostring(i), hl.dsp.exec_cmd(holster_bin .. " activate " .. i))
+  end
+  hl.unbind("0", { submap = "holster" })
+  hl.bind("0", hl.dsp.exec_cmd(holster_bin .. " activate 10"))
+  hl.unbind("j", { submap = "holster" })
+  hl.bind("j", hl.dsp.exec_cmd(holster_bin .. " cycle next"))
+  hl.unbind("Down", { submap = "holster" })
+  hl.bind("Down", hl.dsp.exec_cmd(holster_bin .. " cycle next"))
+  hl.unbind("k", { submap = "holster" })
+  hl.bind("k", hl.dsp.exec_cmd(holster_bin .. " cycle prev"))
+  hl.unbind("Up", { submap = "holster" })
+  hl.bind("Up", hl.dsp.exec_cmd(holster_bin .. " cycle prev"))
+  hl.unbind("backslash", { submap = "holster" })
+  hl.bind("backslash", hl.dsp.exec_cmd(holster_bin .. " toggle"))
+  hl.unbind("bracketright", { submap = "holster" })
+  hl.bind("bracketright", hl.dsp.exec_cmd(holster_bin .. " cycle next"))
+  hl.unbind("bracketleft", { submap = "holster" })
+  hl.bind("bracketleft", hl.dsp.exec_cmd(holster_bin .. " cycle prev"))
+  hl.unbind("slash", { submap = "holster" })
+  hl.bind("slash", hl.dsp.exec_cmd(holster_bin .. " select"))
+  hl.unbind("space", { submap = "holster" })
+  hl.bind("space", hl.dsp.exec_cmd(holster_bin .. " select"))
+  hl.unbind("escape", { submap = "holster" })
+  hl.bind("escape", hl.dsp.exec_cmd(holster_bin .. " submap-exit"))
+  hl.unbind("", { submap = "holster" })
+  hl.bind("", hl.dsp.exec_cmd(holster_bin .. " submap-exit"), { catchall = true })
+end)
+"""
+
+def register_default_bindings():
+    """Register default Hyprland bindings and submap in memory via hyprctl eval."""
+    try:
+        subprocess.run(
+            ["hyprctl", "eval", DEFAULT_BINDINGS_LUA],
+            check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        pass
+
+def unregister_default_bindings():
+    """Remove default bindings from Hyprland in memory."""
+    lua = """
+hl.unbind("SUPER + backslash")
+hl.unbind("SUPER + bracketright")
+hl.unbind("SUPER + bracketleft")
+hl.unbind("SUPER + ALT + backslash")
+hl.unbind("SUPER + SHIFT + backslash")
+for i = 1, 9 do
+  hl.unbind(tostring(i), { submap = "holster" })
+end
+hl.unbind("0", { submap = "holster" })
+hl.unbind("j", { submap = "holster" })
+hl.unbind("Down", { submap = "holster" })
+hl.unbind("k", { submap = "holster" })
+hl.unbind("Up", { submap = "holster" })
+hl.unbind("backslash", { submap = "holster" })
+hl.unbind("bracketright", { submap = "holster" })
+hl.unbind("bracketleft", { submap = "holster" })
+hl.unbind("slash", { submap = "holster" })
+hl.unbind("space", { submap = "holster" })
+hl.unbind("escape", { submap = "holster" })
+hl.unbind("", { submap = "holster" })
+"""
+    try:
+        subprocess.run(
+            ["hyprctl", "eval", lua],
+            check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        pass
+
+def has_persistent_bindings():
+    """Check if window holster bindings are configured in ~/.config/hypr/bindings.lua."""
+    bindings_file = Path.home() / ".config" / "hypr" / "bindings.lua"
+    try:
+        if bindings_file.exists():
+            content = bindings_file.read_text(encoding="utf-8")
+            if "omarchy-window-holster" in content or "Window Holster" in content:
+                return True
+    except Exception:
+        pass
+    return False
+
+def setup_persistent_bindings():
+    """Ensure default bindings are persisted in ~/.config/hypr/bindings.lua without clobbering existing user edits."""
+    bindings_file = Path.home() / ".config" / "hypr" / "bindings.lua"
+    try:
+        if bindings_file.exists():
+            content = bindings_file.read_text(encoding="utf-8")
+            if "omarchy-window-holster" in content or "Window Holster" in content:
+                # Already configured or customized by user
+                return
+            with open(bindings_file, "a", encoding="utf-8") as f:
+                f.write("\n-- Omarchy Window Holster (Quake-style drawer & scratchpad)\n" + DEFAULT_BINDINGS_LUA.strip() + "\n")
+        else:
+            bindings_file.parent.mkdir(parents=True, exist_ok=True)
+            bindings_file.write_text("-- Omarchy Window Holster (Quake-style drawer & scratchpad)\n" + DEFAULT_BINDINGS_LUA.strip() + "\n", encoding="utf-8")
+    except Exception:
+        pass
+
+def cmd_setup(persist=False):
+    """Setup CLI symlink and register live bindings in Hyprland in-memory.
+    Never overwrites or modifies user configuration files without explicit user consent (persist=True).
+    """
+    # 1. Symlink ~/.local/bin/omarchy-window-holster
+    local_bin = Path.home() / ".local" / "bin"
+    try:
+        local_bin.mkdir(parents=True, exist_ok=True)
+        symlink_target = local_bin / "omarchy-window-holster"
+        current_bin = Path(__file__).resolve()
+        if symlink_target.is_symlink() or symlink_target.exists():
+            symlink_target.unlink()
+        symlink_target.symlink_to(current_bin)
+    except Exception:
+        pass
+
+    # 2. Register live in Hyprland (in-memory) if not already loaded from bindings.lua
+    if not has_persistent_bindings():
+        register_default_bindings()
+
+    # 3. Only persist in ~/.config/hypr/bindings.lua with explicit user consent
+    if persist:
+        setup_persistent_bindings()
+
+def notify(summary, body="", timeout_ms=2000, urgency="low"):
+    """No-op: User requested 'Dont show any notifications ever'."""
+    pass
+
+# ---------------------------------------------------------------------------
+# Monitor / geometry helpers
+# ---------------------------------------------------------------------------
+
+def get_focused_monitor():
+    try:
+        res = subprocess.run(["hyprctl", "-j", "monitors"], capture_output=True, text=True, check=True)
+        monitors = json.loads(res.stdout) if res.stdout.strip() else []
+    except Exception:
+        monitors = []
+
+    if isinstance(monitors, list):
+        for m in monitors:
+            if m.get("focused"):
+                return m
+        if monitors:
+            return monitors[0]
+    return {"x": 0, "y": 0, "width": 1920, "height": 1080,
+            "reserved": [0, 0, 0, 0], "scale": 1.0, "specialWorkspace": {"name": ""}}
+
+def calculate_geometry(cfg, monitor):
+    """Return (w, h, x, y) in logical pixels for the configured position."""
+    mon_w = monitor.get("width", 1920)
+    mon_h = monitor.get("height", 1080)
+    mon_x = monitor.get("x", 0)
+    mon_y = monitor.get("y", 0)
+    scale = monitor.get("scale", 1.0)
+    if scale and scale != 1.0:
+        mon_w = int(mon_w / scale)
+        mon_h = int(mon_h / scale)
+
+    reserved = monitor.get("reserved", [0, 0, 0, 0])
+    bar_top = reserved[1] if len(reserved) > 1 else 0
+    bar_bottom = reserved[3] if len(reserved) > 3 else 0
+
+    usable_h = mon_h - bar_top - bar_bottom
+    usable_y = mon_y + bar_top
+
+    pos = cfg.get("position", "top").lower()
+    w_pct = cfg.get("width", 100)
+    h_pct = cfg.get("height", 40)
+
+    target_w = max(200, int(mon_w * (w_pct / 100.0)))
+    target_h = max(100, int(usable_h * (h_pct / 100.0)))
+
+    if pos == "top":
+        x = mon_x
+        y = usable_y
+    elif pos in ("center-top", "top-center"):
+        x = mon_x + (mon_w - target_w) // 2
+        y = usable_y
+    elif pos == "bottom":
+        x = mon_x
+        y = usable_y + usable_h - target_h
+    elif pos in ("center-bottom", "bottom-center"):
+        x = mon_x + (mon_w - target_w) // 2
+        y = usable_y + usable_h - target_h
+    elif pos == "left":
+        x = mon_x
+        y = usable_y
+        target_h = usable_h
+    elif pos in ("center-left", "left-center"):
+        x = mon_x
+        y = usable_y + (usable_h - target_h) // 2
+    elif pos == "right":
+        x = mon_x + mon_w - target_w
+        y = usable_y
+        target_h = usable_h
+    elif pos in ("center-right", "right-center"):
+        x = mon_x + mon_w - target_w
+        y = usable_y + (usable_h - target_h) // 2
+    elif pos == "center":
+        x = mon_x + (mon_w - target_w) // 2
+        y = usable_y + (usable_h - target_h) // 2
+    else:
+        x = mon_x
+        y = usable_y
+
+    return target_w, target_h, x, y
+
+def get_open_special_ws(monitor):
+    spec = monitor.get("specialWorkspace", {})
+    return spec.get("name", "")
+
+def get_active_workspace():
+    try:
+        mon = get_focused_monitor()
+        ws = mon.get("activeWorkspace", {})
+        ws_name = str(ws.get("name", "") if isinstance(ws, dict) else ws)
+        if ws_name and not ws_name.startswith("special:"):
+            return ws_name
+
+        res = subprocess.run(["hyprctl", "-j", "activeworkspace"], capture_output=True, text=True, check=True)
+        data = json.loads(res.stdout) if res.stdout.strip() else {}
+        name = data.get("name", "1")
+        if not name.startswith("special:"):
+            return name
+        return "1"
+    except Exception:
+        return "1"
+
+def enable_click_to_focus():
+    """Option B: Temporarily switch Hyprland to Click-to-Focus mode (macOS style) while holster window is open."""
+    try:
+        subprocess.run(
+            [
+                "hyprctl", "eval",
+                "hl.config({ input = { float_switch_override_focus = 0, mouse_refocus = false, follow_mouse = 2 } })"
+            ],
+            check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        pass
+
+def restore_normal_focus():
+    """Restore Hyprland's default sloppy/hover focus."""
+    try:
+        subprocess.run(
+            [
+                "hyprctl", "eval",
+                "hl.config({ input = { float_switch_override_focus = 1, mouse_refocus = true, follow_mouse = 1 } })"
+            ],
+            check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        pass
+
+def win_show_holster(addr):
+    """Bring a holstered window from its special workspace onto the active workspace."""
+    # Temporarily switch Hyprland to Click-to-Focus (Option B) so moving mouse doesn't retract window
+    enable_click_to_focus()
+
+    cfg = load_config()
+    monitor = get_focused_monitor()
+    active_ws = get_active_workspace()
+
+    win_move_to_ws(addr, active_ws, follow=False)
+    win_float(addr, "on")
+
+    w, h, x, y = calculate_geometry(cfg, monitor)
+    win_resize(addr, w, h)
+    win_move_pos(addr, x, y)
+    win_focus(addr)
+
+def win_hide_holster(addr):
+    """Move a holstered window back into its private special workspace so it disappears."""
+    # Restore Hyprland's default follow_mouse and float focus settings
+    restore_normal_focus()
+
+    spec_ws = window_special_ws(addr)
+    win_move_to_ws(addr, spec_ws, follow=False)
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+def cmd_toggle_role(target_addr=None):
+    """Toggle a window (by address, or active window if None) into/out of the holster."""
+    if target_addr:
+        addr = target_addr
+    else:
+        try:
+            res = subprocess.run(["hyprctl", "-j", "activewindow"], capture_output=True, text=True, check=True)
+            active = json.loads(res.stdout) if res.stdout.strip() else {}
+        except Exception:
+            active = {}
+        addr = active.get("address")
+
+    if not addr:
+        return
+
+    state, live_clients = load_state()
+    cfg = load_config()
+    monitor = get_focused_monitor()
+
+    if addr in state["windows"]:
+        # ---- UNHOLSTER: Return window back to normal tiled layout ----
+        was_active = (state.get("active_addr") == addr)
+        state["windows"].remove(addr)
+        if was_active:
+            state["active_addr"] = None
+            restore_normal_focus()
+        if state.get("last_active_addr") == addr:
+            state["last_active_addr"] = state["windows"][-1] if state["windows"] else None
+
+        active_addr = state.get("active_addr")
+        state["active_index"] = state["windows"].index(active_addr) if active_addr else -1
+        win_meta = state.get("window_meta", {}).pop(addr, {})
+        save_state(state)
+
+        active_ws = get_active_workspace()
+        target_ws = win_meta.get("original_workspace") or active_ws
+        if target_ws.startswith("special:"):
+            target_ws = "1"
+        was_floating = win_meta.get("original_floating", False)
+
+        win_move_to_ws(addr, target_ws, follow=False)
+        if not was_floating:
+            win_float(addr, "off")
+        else:
+            win_float(addr, "on")
+        win_focus(addr)
+    else:
+        # ---- HOLSTER: Move to its dedicated special workspace and disappear ----
+        client = live_clients.get(addr, {})
+        ws_info = client.get("workspace", {})
+        orig_ws = ws_info.get("name", "1") if isinstance(ws_info, dict) else str(ws_info)
+        if orig_ws.startswith("special:"):
+            orig_ws = "1"
+        orig_floating = client.get("floating", False)
+
+        if "window_meta" not in state:
+            state["window_meta"] = {}
+        state["window_meta"][addr] = {
+            "original_workspace": orig_ws,
+            "original_floating": orig_floating
+        }
+        state["windows"].append(addr)
+        # The newly stashed window is now the last active window!
+        state["last_active_addr"] = addr
+        state["active_addr"] = None
+        state["active_index"] = -1
+        save_state(state)
+
+        # Apply geometry: float, resize, position
+        w, h, x, y = calculate_geometry(cfg, monitor)
+        win_float(addr, "on")
+        win_resize(addr, w, h)
+        win_move_pos(addr, x, y)
+
+        # Silently move to its private special workspace so it immediately disappears
+        win_hide_holster(addr)
+
+
+def cmd_toggle():
+    """Quake-style drop-down toggle:
+    If a holster window is currently open, retract it.
+    If no holster window is open, unholster/show the last holstered (or last active) window.
+    """
+    state, live_clients = load_state()
+    if not state["windows"]:
+        cmd_select()
+        return
+
+    active_addr = state.get("active_addr")
+
+    # If a holster window is currently showing on screen, retract it!
+    if active_addr and active_addr in state["windows"]:
+        win_hide_holster(active_addr)
+        state["last_active_addr"] = active_addr
+        state["active_addr"] = None
+        state["active_index"] = -1
+        save_state(state)
+        return
+
+    # Otherwise, unholster / drop down the last holstered (or last active) window!
+    last_addr = state.get("last_active_addr")
+    if last_addr and last_addr in state["windows"]:
+        target_addr = last_addr
+    else:
+        # Default to the most recently holstered window (last in list)
+        target_addr = state["windows"][-1]
+
+    state["active_addr"] = target_addr
+    state["last_active_addr"] = target_addr
+    state["active_index"] = state["windows"].index(target_addr)
+    state["last_opened_time"] = time.time()
+    save_state(state)
+
+    win_show_holster(target_addr)
+
+    state["last_opened_time"] = time.time()
+    save_state(state)
+
+
+def cmd_cycle(direction="next"):
+    """Cycle through holstered windows sequentially:
+    direction: "next" (forward) or "prev" / "back" (backward).
+    """
+    state, live_clients = load_state()
+    if not state["windows"]:
+        return
+
+    total = len(state["windows"])
+    if total == 0:
+        return
+
+    active_addr = state.get("active_addr")
+    is_prev = str(direction).lower() in ("prev", "back", "backward", "-1")
+
+    # Determine current index
+    if active_addr and active_addr in state["windows"]:
+        current_idx = state["windows"].index(active_addr)
+    elif state.get("last_active_addr") in state["windows"]:
+        current_idx = state["windows"].index(state["last_active_addr"])
+    else:
+        current_idx = total - 1
+
+    if total == 1:
+        target_addr = state["windows"][0]
+        state["active_addr"] = target_addr
+        state["last_active_addr"] = target_addr
+        state["active_index"] = 0
+        state["last_opened_time"] = time.time()
+        save_state(state)
+        win_show_holster(target_addr)
+        state["last_opened_time"] = time.time()
+        save_state(state)
+        return
+
+    # If currently showing, hide the current one first
+    if active_addr and active_addr in state["windows"]:
+        win_hide_holster(active_addr)
+        if is_prev:
+            next_idx = (current_idx - 1) % total
+        else:
+            next_idx = (current_idx + 1) % total
+    else:
+        # Currently closed: open the last active (or next/prev)
+        if is_prev:
+            next_idx = (current_idx - 1) % total
+        else:
+            next_idx = current_idx
+
+    target_addr = state["windows"][next_idx]
+    state["active_addr"] = target_addr
+    state["last_active_addr"] = target_addr
+    state["active_index"] = next_idx
+    state["last_opened_time"] = time.time()
+    save_state(state)
+
+    win_show_holster(target_addr)
+
+    state["last_opened_time"] = time.time()
+    save_state(state)
+
+
+def cmd_activate(slot_str):
+    """Directly activate a specific holster slot (1-based)."""
+    try:
+        slot = int(slot_str)
+    except ValueError:
+        return
+
+    # Reset any active submap
+    submap_reset()
+
+    state, _ = load_state()
+    target_idx = slot - 1
+    if 0 <= target_idx < len(state["windows"]):
+        target_addr = state["windows"][target_idx]
+        active_addr = state.get("active_addr")
+
+        # If this slot is already open, retract it
+        if active_addr == target_addr:
+            win_hide_holster(target_addr)
+            state["last_active_addr"] = target_addr
+            state["active_addr"] = None
+            state["active_index"] = -1
+            save_state(state)
+            return
+
+        # If another window is showing, hide it first
+        if active_addr and active_addr in state["windows"]:
+            win_hide_holster(active_addr)
+
+        state["active_addr"] = target_addr
+        state["last_active_addr"] = target_addr
+        state["active_index"] = target_idx
+        state["last_opened_time"] = time.time()
+        save_state(state)
+
+        win_show_holster(target_addr)
+
+        state["last_opened_time"] = time.time()
+        save_state(state)
+
+
+def cmd_select():
+    """Open interactive window picking (prefers native QML HUD, fallbacks to menu)."""
+    # First try summoning the native QML HUD overlay via omarchy-shell
+    try:
+        res = subprocess.run(
+            ["omarchy-shell", "shell", "toggle", "omarchy-window-holster"],
+            capture_output=True, text=True, timeout=2
+        )
+        if res.returncode == 0:
+            return
+    except Exception:
+        pass
+
+    state, live_clients = load_state()
+
+    options = []
+    if not state["windows"]:
+        options.append("ℹ️\tNo windows are holstered\tFocus any window and press shortcut to holster it")
+    else:
+        for i, addr in enumerate(state["windows"]):
+            client = live_clients.get(addr, {})
+            title = client.get("title", "Window").replace("\t", " ").replace("\n", " ").strip()
+            app_cls = client.get("class", "").replace("\t", " ").replace("\n", " ").strip()
+            slot = i + 1
+            active_glyph = "▶" if i == state["active_index"] else "󰖲"
+            addr_hint = addr[-4:] if len(addr) >= 4 else addr
+            options.append(f"{active_glyph}\t{slot}. {title}\t[Slot {slot} #{addr_hint}] {app_cls}")
+
+    menu_bin = Path("/usr/share/omarchy/bin/omarchy-menu-select")
+    if not menu_bin.exists():
+        return
+
+    try:
+        proc = subprocess.run(
+            [str(menu_bin), "Select Holster Window", *options],
+            capture_output=True, text=True, timeout=60
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            sel = proc.stdout.strip()
+            if "No windows are holstered" in sel:
+                return
+            m = re.search(r'^(\d+)\.|\[Slot (\d+)', sel)
+            if m:
+                slot_str = m.group(1) or m.group(2)
+                cmd_activate(slot_str)
+                return
+    except Exception:
+        pass
+
+
+def cmd_list_json():
+    """Print JSON array of current holster contents."""
+    state, live_clients = load_state()
+    result = []
+    active_addr = state.get("active_addr")
+    for i, addr in enumerate(state["windows"]):
+        client = live_clients.get(addr, {})
+        result.append({
+            "slot": i + 1,
+            "address": addr,
+            "title": client.get("title", "Unknown"),
+            "class": client.get("class", ""),
+            "active": (addr == active_addr)
+        })
+    print(json.dumps(result))
+
+
+def cmd_unholster(addr):
+    """Remove a specific window from the holster by exact address."""
+    state, live_clients = load_state()
+    if addr not in state["windows"]:
+        return
+
+    was_active = (state.get("active_addr") == addr)
+    state["windows"].remove(addr)
+    if was_active:
+        state["active_addr"] = None
+        restore_normal_focus()
+    if state.get("last_active_addr") == addr:
+        state["last_active_addr"] = state["windows"][-1] if state["windows"] else None
+
+    active_addr = state.get("active_addr")
+    state["active_index"] = state["windows"].index(active_addr) if active_addr else -1
+    win_meta = state.get("window_meta", {}).pop(addr, {})
+    save_state(state)
+
+    active_ws = get_active_workspace()
+    target_ws = win_meta.get("original_workspace") or active_ws
+    if target_ws.startswith("special:"):
+        target_ws = "1"
+    was_floating = win_meta.get("original_floating", False)
+
+    # Move back to active workspace, untile, and focus
+    win_move_to_ws(addr, target_ws, follow=False)
+    if not was_floating:
+        win_float(addr, "off")
+    else:
+        win_float(addr, "on")
+    win_focus(addr)
+
+
+def reset_all():
+    """Restore all holstered and hidden windows back to visible workspaces and untile them."""
+    state, live_clients = load_state()
+    fallback_ws = get_active_workspace()
+
+    # Gather all window addresses to restore:
+    # 1. From saved state
+    target_addrs = set(state.get("windows", []))
+
+    # 2. From live clients on any holster special workspace
+    for addr, client in live_clients.items():
+        ws = client.get("workspace", {})
+        ws_name = ws.get("name", "") if isinstance(ws, dict) else str(ws)
+        if ws_name.startswith("special:holster"):
+            target_addrs.add(addr)
+
+    meta = state.get("window_meta", {})
+
+    for addr in target_addrs:
+        win_meta = meta.get(addr, {})
+        target_ws = win_meta.get("original_workspace") or fallback_ws
+        if target_ws.startswith("special:"):
+            target_ws = "1"
+        was_floating = win_meta.get("original_floating", False)
+
+        win_move_to_ws(addr, target_ws, follow=False)
+        if not was_floating:
+            win_float(addr, "off")
+        else:
+            win_float(addr, "on")
+
+    # Reset state
+    state["windows"] = []
+    state["active_addr"] = None
+    state["last_active_addr"] = None
+    state["active_index"] = -1
+    state["window_meta"] = {}
+    save_state(state)
+
+    # Always ensure Hyprland focus settings and submaps are restored to default
+    restore_normal_focus()
+    submap_reset()
+
+
+def socket2_listener_loop():
+    """Listens on Hyprland's socket2 for focus, workspace, and window close events.
+    When a holster window is showing on screen and the user clicks outside or switches
+    focus/workspace, automatically retracts the holster window back into its private special workspace.
+    If the active window closes or dies, immediately restores normal focus settings.
+    """
+    import socket
+
+    xdg_runtime = os.environ.get("XDG_RUNTIME_DIR", "/run/user/1000")
+    his = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+    if not his:
+        hypr_dir = os.path.join(xdg_runtime, "hypr")
+        if os.path.isdir(hypr_dir):
+            entries = [e for e in os.listdir(hypr_dir) if os.path.exists(os.path.join(hypr_dir, e, ".socket2.sock"))]
+            if entries:
+                his = entries[0]
+    if not his:
+        return
+    sock_path = f"{xdg_runtime}/hypr/{his}/.socket2.sock"
+
+    while True:
+        try:
+            if not os.path.exists(sock_path):
+                time.sleep(2)
+                continue
+
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(sock_path)
+            s_file = s.makefile("r", encoding="utf-8", errors="ignore")
+
+            for raw_line in s_file:
+                line = raw_line.strip()
+                if not line:
+                    continue
+
+                is_focus = line.startswith("activewindowv2>>")
+                is_ws = line.startswith("workspace>>") or line.startswith("focusedmon>>")
+                is_close = line.startswith("closewindow>>")
+                is_reload = line.startswith("configreloaded>>")
+
+                if is_reload:
+                    if not has_persistent_bindings():
+                        register_default_bindings()
+                    continue
+
+                if not (is_focus or is_ws or is_close):
+                    continue
+
+                state, _ = load_state()
+                active_addr = state.get("active_addr")
+
+                if is_close:
+                    closed_raw = line[len("closewindow>>"):].strip().lower().replace("0x", "")
+                    if active_addr and active_addr.lower().replace("0x", "") == closed_raw:
+                        restore_normal_focus()
+                        state["active_addr"] = None
+                        state["active_index"] = -1
+                        save_state(state)
+                    continue
+
+                if not active_addr or active_addr not in state.get("windows", []):
+                    continue
+
+                # Activation grace period: ignore events for 500ms after opening
+                last_opened = state.get("last_opened_time", 0)
+                if (time.time() - last_opened) < 0.5:
+                    continue
+
+                if is_focus:
+                    parts = line[len("activewindowv2>>"):].split(",")
+                    new_addr = parts[0].strip().lower()
+                    if new_addr and not new_addr.startswith("0x"):
+                        new_addr = "0x" + new_addr
+                    clean_active = active_addr.strip().lower()
+                    if not clean_active.startswith("0x"):
+                        clean_active = "0x" + clean_active
+
+                    if new_addr and new_addr == clean_active:
+                        continue
+
+                    # If focus changed to a dialog/child on this window, do not retract
+                    if new_addr:
+                        try:
+                            live_c = get_live_clients()
+                            c_info = live_c.get(new_addr)
+                            if c_info:
+                                p_pid = c_info.get("pid")
+                                holster_c = live_c.get(clean_active, {})
+                                if p_pid and p_pid == holster_c.get("pid"):
+                                    continue
+                        except Exception:
+                            pass
+
+                    # Clicked outside / focus shifted away -> retract back to special workspace!
+                    win_hide_holster(active_addr)
+                    state["last_active_addr"] = active_addr
+                    state["active_addr"] = None
+                    state["active_index"] = -1
+                    save_state(state)
+
+                elif is_ws:
+                    # Ignore workspace events for the active workspace where the window resides
+                    if line.startswith("workspace>>"):
+                        ws_target = line[len("workspace>>"):].strip()
+                        if ws_target == get_active_workspace():
+                            continue
+                    elif line.startswith("focusedmon>>"):
+                        mon_parts = line[len("focusedmon>>"):].split(",")
+                        if len(mon_parts) > 1 and mon_parts[1].strip() == get_active_workspace():
+                            continue
+
+                    # Switched regular workspace or focused monitor -> retract!
+                    win_hide_holster(active_addr)
+                    state["last_active_addr"] = active_addr
+                    state["active_addr"] = None
+                    state["active_index"] = -1
+                    save_state(state)
+
+            s.close()
+        except Exception:
+            time.sleep(1)
+
+
+def cmd_watchdog():
+    """Watchdog process spawned by Service.qml.
+    Listens on stdin for parent termination (EOF) and handles termination signals.
+    When the parent (omarchy-shell / plugin) quits or crashes, resets all windows.
+    Also runs background socket2 listener for click-outside auto-retract.
+    """
+    lock_file = STATE_DIR / "omarchy_holster_watchdog.pid"
+    try:
+        if lock_file.exists():
+            old_pid = int(lock_file.read_text().strip())
+            os.kill(old_pid, 0)
+            return
+    except Exception:
+        pass
+
+    try:
+        lock_file.write_text(str(os.getpid()))
+    except Exception:
+        pass
+
+    try:
+        import ctypes
+        libc = ctypes.CDLL("libc.so.6")
+        PR_SET_PDEATHSIG = 1
+        libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+    except Exception:
+        pass
+
+    cleaned = False
+
+    def on_exit(signum=None, frame=None):
+        nonlocal cleaned
+        if not cleaned:
+            cleaned = True
+            try:
+                reset_all()
+            except Exception:
+                pass
+            try:
+                if lock_file.exists():
+                    lock_file.unlink()
+            except Exception:
+                pass
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, on_exit)
+    signal.signal(signal.SIGHUP, on_exit)
+    signal.signal(signal.SIGINT, on_exit)
+
+    # Ensure default Hyprland shortcuts are active and persisted
+    cmd_setup()
+
+    # Start background socket2 listener for click-outside auto-retract
+    listener_thread = threading.Thread(target=socket2_listener_loop, daemon=True)
+    listener_thread.start()
+
+    try:
+        while True:
+            chunk = sys.stdin.read(1024)
+            if not chunk:
+                break
+    except Exception:
+        pass
+
+    on_exit()
+
+
+def cmd_config():
+    """Open the config panel via omarchy-shell."""
+    subprocess.Popen(
+        ["omarchy-shell", "shell", "summon", "omarchy-window-holster", "{}"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def main():
+    if len(sys.argv) < 2:
+        print(
+            "Usage: omarchy-window-holster "
+            "<toggle|toggle-role|stash|cycle|activate <N>|select|list|get-config|set-config <json>|unholster <addr>|reset|watchdog|config>"
+        )
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+
+    if cmd == "toggle":
+        cmd_toggle()
+    elif cmd in ("toggle-role", "stash"):
+        addr_arg = sys.argv[2] if len(sys.argv) >= 3 else None
+        cmd_toggle_role(addr_arg)
+    elif cmd == "cycle":
+        dir_arg = sys.argv[2] if len(sys.argv) >= 3 else "next"
+        cmd_cycle(dir_arg)
+    elif cmd in ("cycle-prev", "cycle-back"):
+        cmd_cycle("prev")
+    elif cmd == "activate" and len(sys.argv) >= 3:
+        cmd_activate(sys.argv[2])
+    elif cmd == "unholster" and len(sys.argv) >= 3:
+        cmd_unholster(sys.argv[2])
+    elif cmd in ("submap-enter", "submap"):
+        submap_enter("holster")
+        cmd_select()
+    elif cmd == "select":
+        cmd_select()
+    elif cmd in ("reset", "reset-all", "restore-all"):
+        reset_all()
+    elif cmd == "watchdog":
+        cmd_watchdog()
+    elif cmd in ("submap-exit",):
+        submap_reset()
+    elif cmd == "list":
+        cmd_list_json()
+    elif cmd == "get-config":
+        print(json.dumps(load_config()))
+    elif cmd == "set-config" and len(sys.argv) >= 3:
+        try:
+            cfg = json.loads(sys.argv[2])
+            save_config(cfg)
+            print("OK")
+        except Exception as e:
+            print(f"ERROR: {e}")
+            sys.exit(1)
+    elif cmd == "config":
+        cmd_config()
+    elif cmd == "setup":
+        cmd_setup(persist=False)
+        print("OK")
+    elif cmd in ("setup-bindings", "install-bindings"):
+        cmd_setup(persist=True)
+        print("OK: Persistent bindings added to ~/.config/hypr/bindings.lua")
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

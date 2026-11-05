@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy-window-holster",
+  "name": "Omarchy Window Holster",
+  "version": "1.0.0",
+  "author": "P. Sri Hari Raju",
+  "homepage": "https://github.com/srihari93/omarchy-window-holster",
+  "repository": "https://github.com/srihari93/omarchy-window-holster.git",
+  "license": "MIT",
+  "description": "Quake-style drop-down, scratchpad, and multi-edge drawer for any window on Hyprland with slot jumps, submap mode, and instant switching.",
+  "keywords": [
+    "quake",
+    "quake-style",
+    "quake-mode",
+    "guake",
+    "yakuake",
+    "tilda",
+    "drop-down",
+    "dropdown",
+    "dropdown-terminal",
+    "visor",
+    "totalterminal",
+    "holster",
+    "window-holster",
+    "scratchpad",
+    "scratchpads",
+    "pyprland",
+    "drawer",
+    "window-drawer",
+    "sliding-window",
+    "edge-drawer",
+    "side-panel",
+    "dock",
+    "tdrop",
+    "hyprland",
+    "hyprland-scratchpad",
+    "hyprland-plugin",
+    "wayland",
+    "omarchy",
+    "omarchy-plugin",
+    "special-workspace",
+    "window-manager",
+    "tiling",
+    "submap",
+    "slot-selector",
+    "quick-switch",
+    "quick-terminal",
+    "multi-window",
+    "floating",
+    "overlay",
+    "popup",
+    "hud",
+    "hotkey",
+    "shortcuts",
+    "productivity",
+    "tui"
+  ],
+  "kinds": [
+    "service",
+    "bar-widget",
+    "overlay"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml",
+    "overlay": "Selector.qml"
+  },
+  "barWidget": {
+    "displayName": "Window Holster",
+    "description": "Quick access and status for holstered drop-down windows",
+    "category": "Window management",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "showBadge": true,
+      "position": "top",
+      "width": 100,
+      "height": 40
+    },
+    "schema": [
+      {
+        "key": "position",
+        "type": "enum",
+        "label": "Drawer Position",
+        "options": [
+          "top",
+          "center-top",
+          "bottom",
+          "center-bottom",
+          "left",
+          "center-left",
+          "right",
+          "center-right",
+          "center"
+        ],
+        "defaultValue": "top"
+      },
+      {
+        "key": "width",
+        "type": "integer",
+        "label": "Width %",
+        "min": 20,
+        "max": 100,
+        "step": 5,
+        "defaultValue": 100
+      },
+      {
+        "key": "height",
+        "type": "integer",
+        "label": "Height %",
+        "min": 10,
+        "max": 100,
+        "step": 5,
+        "defaultValue": 40
+      }
+    ]
+  }
+}
