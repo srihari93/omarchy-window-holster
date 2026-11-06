@@ -80,18 +80,40 @@ def load_state():
         except Exception:
             corrupted = True
 
-    valid_windows = [addr for addr in raw_windows if addr in live_clients]
+    valid_windows = []
+    dirty = False
+    for addr in raw_windows:
+        if addr not in live_clients:
+            dirty = True
+            continue
+        client = live_clients[addr]
+        ws_info = client.get("workspace", {})
+        ws_name = str(ws_info.get("name", "") if isinstance(ws_info, dict) else ws_info)
+        clean_addr = addr.replace("0x", "")
+        expected_spec = f"special:holster_{clean_addr}"
+
+        # Window is valid if:
+        # 1. It is currently in its private special workspace: special:holster_<clean_addr>
+        # 2. OR it is currently the active window showing in the drawer
+        if ws_name == expected_spec:
+            valid_windows.append(addr)
+        elif active_addr == addr and not ws_name.startswith("special:holster_"):
+            valid_windows.append(addr)
+        else:
+            # Window was moved out of holster to another workspace (e.g. special:qconsole or regular workspace)
+            dirty = True
+
     valid_meta = {addr: raw_meta[addr] for addr in valid_windows if addr in raw_meta}
 
     # Auto-adopt any orphaned windows residing in special:holster_* workspaces
-    dirty = (len(valid_windows) != len(raw_windows))
     for addr, client in live_clients.items():
-        ws_name = client.get("workspace", {}).get("name", "")
+        ws_info = client.get("workspace", {})
+        ws_name = str(ws_info.get("name", "") if isinstance(ws_info, dict) else ws_info)
         if ws_name.startswith("special:holster_") and addr not in valid_windows:
             valid_windows.append(addr)
             if addr not in valid_meta:
                 valid_meta[addr] = {
-                    "original_workspace": "1",
+                    "original_workspace": get_active_workspace(),
                     "original_floating": False
                 }
             dirty = True
@@ -479,6 +501,12 @@ def win_show_holster(addr):
     monitor = get_focused_monitor()
     active_ws = get_active_workspace()
 
+    # If special:qconsole or special:scratchpad is currently open, dismiss it first
+    # so the holster drawer is not obscured by a dimmed overlay
+    open_special = monitor.get("specialWorkspace", {}).get("name", "")
+    if open_special and open_special.startswith("special:") and not open_special.startswith("special:holster_"):
+        ws_toggle_special(open_special.replace("special:", ""))
+
     win_move_to_ws(addr, active_ws, follow=False)
     win_float(addr, "on")
 
@@ -535,12 +563,14 @@ def cmd_toggle_role(target_addr=None):
 
         active_ws = get_active_workspace()
         target_ws = win_meta.get("original_workspace") or active_ws
-        if target_ws.startswith("special:"):
-            target_ws = "1"
+        if target_ws.startswith("special:holster_"):
+            target_ws = active_ws
         was_floating = win_meta.get("original_floating", False)
 
         win_move_to_ws(addr, target_ws, follow=False)
-        if not was_floating:
+        if target_ws == "special:qconsole":
+            win_float(addr, "off")
+        elif not was_floating:
             win_float(addr, "off")
         else:
             win_float(addr, "on")
@@ -549,9 +579,9 @@ def cmd_toggle_role(target_addr=None):
         # ---- HOLSTER: Move to its dedicated special workspace and disappear ----
         client = live_clients.get(addr, {})
         ws_info = client.get("workspace", {})
-        orig_ws = ws_info.get("name", "1") if isinstance(ws_info, dict) else str(ws_info)
-        if orig_ws.startswith("special:"):
-            orig_ws = "1"
+        orig_ws = str(ws_info.get("name", "") if isinstance(ws_info, dict) else ws_info)
+        if orig_ws.startswith("special:holster_") or not orig_ws:
+            orig_ws = get_active_workspace()
         orig_floating = client.get("floating", False)
 
         if "window_meta" not in state:
@@ -809,13 +839,15 @@ def cmd_unholster(addr):
 
     active_ws = get_active_workspace()
     target_ws = win_meta.get("original_workspace") or active_ws
-    if target_ws.startswith("special:"):
-        target_ws = "1"
+    if target_ws.startswith("special:holster_"):
+        target_ws = active_ws
     was_floating = win_meta.get("original_floating", False)
 
     # Move back to active workspace, untile, and focus
     win_move_to_ws(addr, target_ws, follow=False)
-    if not was_floating:
+    if target_ws == "special:qconsole":
+        win_float(addr, "off")
+    elif not was_floating:
         win_float(addr, "off")
     else:
         win_float(addr, "on")
@@ -843,12 +875,14 @@ def reset_all():
     for addr in target_addrs:
         win_meta = meta.get(addr, {})
         target_ws = win_meta.get("original_workspace") or fallback_ws
-        if target_ws.startswith("special:"):
-            target_ws = "1"
+        if target_ws.startswith("special:holster_"):
+            target_ws = fallback_ws
         was_floating = win_meta.get("original_floating", False)
 
         win_move_to_ws(addr, target_ws, follow=False)
-        if not was_floating:
+        if target_ws == "special:qconsole":
+            win_float(addr, "off")
+        elif not was_floating:
             win_float(addr, "off")
         else:
             win_float(addr, "on")
@@ -905,17 +939,58 @@ def socket2_listener_loop():
                 is_ws = line.startswith("workspace>>") or line.startswith("focusedmon>>")
                 is_close = line.startswith("closewindow>>")
                 is_reload = line.startswith("configreloaded>>")
+                is_move = line.startswith("movewindowv2>>") or line.startswith("movewindow>>")
 
                 if is_reload:
                     if not has_persistent_bindings():
                         register_default_bindings()
                     continue
 
-                if not (is_focus or is_ws or is_close):
+                if not (is_focus or is_ws or is_close or is_move):
                     continue
 
                 state, _ = load_state()
                 active_addr = state.get("active_addr")
+
+                if is_move:
+                    if line.startswith("movewindowv2>>"):
+                        parts = line[len("movewindowv2>>"):].split(",")
+                        m_addr = parts[0].strip().lower()
+                        m_ws = parts[2].strip() if len(parts) >= 3 else ""
+                    else:
+                        parts = line[len("movewindow>>"):].split(",")
+                        m_addr = parts[0].strip().lower()
+                        m_ws = parts[1].strip() if len(parts) >= 2 else ""
+
+                    if m_addr and not m_addr.startswith("0x"):
+                        m_addr = "0x" + m_addr
+
+                    if m_addr in state.get("windows", []):
+                        clean_m = m_addr.replace("0x", "")
+                        expected_spec = f"special:holster_{clean_m}"
+                        if m_ws and m_ws != expected_spec:
+                            is_self_show = (
+                                state.get("active_addr") == m_addr
+                                and (time.time() - state.get("last_opened_time", 0)) < 0.6
+                                and m_ws == get_active_workspace()
+                            )
+                            if not is_self_show:
+                                was_act = (state.get("active_addr") == m_addr)
+                                state["windows"].remove(m_addr)
+                                if was_act:
+                                    restore_normal_focus()
+                                    state["active_addr"] = None
+                                    state["active_index"] = -1
+                                if state.get("last_active_addr") == m_addr:
+                                    state["last_active_addr"] = state["windows"][-1] if state["windows"] else None
+                                state.get("window_meta", {}).pop(m_addr, None)
+                                save_state(state)
+
+                                if m_ws == "special:qconsole":
+                                    win_float(m_addr, "off")
+                                elif not m_ws.startswith("special:"):
+                                    win_float(m_addr, "off")
+                    continue
 
                 if is_close:
                     closed_raw = line[len("closewindow>>"):].strip().lower().replace("0x", "")
