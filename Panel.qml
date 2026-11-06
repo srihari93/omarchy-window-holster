@@ -23,6 +23,7 @@ Panel {
   property string cfgPosition: "top"
   property int cfgWidth: 100
   property int cfgHeight: 40
+  property bool showSettings: false
 
   // Live shortcut hint properties
   property string scToggle: "SUPER + \\"
@@ -159,98 +160,10 @@ Panel {
 
       PanelSeparator { width: parent.width }
 
-      // Position Dropdown
-      Text {
-        text: "Position & Edge"
-        color: root.contentForeground
-        font.family: root.contentFontFamily
-        font.pixelSize: Style.font.caption
-        font.bold: true
-      }
-
-      Dropdown {
-        width: parent.width
-        value: root.cfgPosition
-        options: [
-          { value: "top", label: "Top (Drop-down)" },
-          { value: "center-top", label: "Center-Top" },
-          { value: "bottom", label: "Bottom (Rise-up)" },
-          { value: "center-bottom", label: "Center-Bottom" },
-          { value: "left", label: "Left Edge (Drawer)" },
-          { value: "center-left", label: "Center-Left" },
-          { value: "right", label: "Right Edge (Drawer)" },
-          { value: "center-right", label: "Center-Right" },
-          { value: "center", label: "Center (Modal)" }
-        ]
-        onChanged: function(val) {
-          if (root.cfgPosition !== val) {
-            root.cfgPosition = val
-            root.saveConfig()
-          }
-        }
-      }
-
-      // Width Slider
-      Text {
-        text: "Width: " + (widthSlider.dragging ? Math.round(widthSlider.liveValue) : root.cfgWidth) + "%"
-        color: root.contentForeground
-        font.family: root.contentFontFamily
-        font.pixelSize: Style.font.caption
-      }
-
-      PanelSlider {
-        id: widthSlider
-        width: parent.width
-        bar: root.bar
-        minimum: 20
-        maximum: 100
-        step: 5
-        integer: true
-        value: root.cfgWidth
-        onMoved: function(v) {
-          widthSlider.value = Math.round(v)
-          root.cfgWidth = Math.round(v)
-        }
-        onReleased: function(v) {
-          widthSlider.value = Math.round(v)
-          root.cfgWidth = Math.round(v)
-          root.saveConfig()
-        }
-      }
-
-      // Height Slider
-      Text {
-        text: "Height: " + (heightSlider.dragging ? Math.round(heightSlider.liveValue) : root.cfgHeight) + "%"
-        color: root.contentForeground
-        font.family: root.contentFontFamily
-        font.pixelSize: Style.font.caption
-      }
-
-      PanelSlider {
-        id: heightSlider
-        width: parent.width
-        bar: root.bar
-        minimum: 10
-        maximum: 100
-        step: 5
-        integer: true
-        value: root.cfgHeight
-        onMoved: function(v) {
-          heightSlider.value = Math.round(v)
-          root.cfgHeight = Math.round(v)
-        }
-        onReleased: function(v) {
-          heightSlider.value = Math.round(v)
-          root.cfgHeight = Math.round(v)
-          root.saveConfig()
-        }
-      }
-
-      PanelSeparator { width: parent.width }
-
-      // Holstered Windows Pool
+      // Holstered Windows Pool (Placed First)
       Row {
         width: parent.width
+
         Text {
           text: "Holstered Windows (" + root.holsteredWindows.length + ")"
           color: root.contentForeground
@@ -259,12 +172,23 @@ Panel {
           font.bold: true
           anchors.verticalCenter: parent.verticalCenter
         }
-        Item { width: Style.space(12); height: 1 }
+
+        Item {
+          // Spacer
+          width: Math.max(Style.space(8), parent.width - (parent.children[0].implicitWidth + (restoreAllBtn.visible ? restoreAllBtn.implicitWidth : 0) + Style.space(16)))
+          height: 1
+        }
+
         Button {
+          id: restoreAllBtn
           visible: root.holsteredWindows.length > 0
           text: "Restore All"
           fontSize: Style.font.caption
           anchors.verticalCenter: parent.verticalCenter
+          bordered: false
+          background: Util.alpha(root.contentForeground, 0.06)
+          horizontalPadding: Style.space(8)
+          verticalPadding: Style.space(2)
           onClicked: {
             Quickshell.execDetached([root.scriptPath, "reset-all"])
             Qt.callLater(root.refresh)
@@ -274,42 +198,59 @@ Panel {
 
       Repeater {
         model: root.holsteredWindows
-        delegate: Item {
+        delegate: Rectangle {
           required property var modelData
           width: parent.width
           height: Style.space(32)
+          radius: Style.cornerRadius
+          color: Util.alpha(root.contentForeground, 0.03)
 
-          Row {
+          Item {
             anchors.fill: parent
-            spacing: Style.space(6)
+            anchors.leftMargin: Style.space(8)
+            anchors.rightMargin: Style.space(8)
 
-            Text {
-              text: "[" + modelData.slot + "]"
-              color: Commons.Color.accent
-              font.family: root.contentFontFamily
-              font.bold: true
-              font.pixelSize: Style.font.bodySmall
+            Row {
+              anchors.left: parent.left
+              anchors.right: unholsterBtn.left
+              anchors.rightMargin: Style.space(8)
               anchors.verticalCenter: parent.verticalCenter
-            }
+              spacing: Style.space(6)
 
-            Text {
-              text: modelData.title
-              color: root.contentForeground
-              font.family: root.contentFontFamily
-              font.pixelSize: Style.font.bodySmall
-              elide: Text.ElideRight
-              width: Style.space(200)
-              anchors.verticalCenter: parent.verticalCenter
+              Text {
+                text: "[" + modelData.slot + "]"
+                color: Commons.Color.accent
+                font.family: root.contentFontFamily
+                font.bold: true
+                font.pixelSize: Style.font.bodySmall
+                anchors.verticalCenter: parent.verticalCenter
+              }
+
+              Text {
+                text: modelData.title || "Window"
+                color: root.contentForeground
+                font.family: root.contentFontFamily
+                font.pixelSize: Style.font.bodySmall
+                elide: Text.ElideRight
+                width: Math.max(Style.space(80), parent.width - Style.space(35))
+                anchors.verticalCenter: parent.verticalCenter
+              }
             }
 
             Button {
+              id: unholsterBtn
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
               text: "Unholster"
               fontSize: Style.font.caption
+              bordered: false
+              background: Util.alpha(root.contentForeground, 0.06)
+              horizontalPadding: Style.space(8)
+              verticalPadding: Style.space(2)
               onClicked: {
                 Quickshell.execDetached([root.scriptPath, "unholster", modelData.address])
                 Qt.callLater(root.refresh)
               }
-              anchors.verticalCenter: parent.verticalCenter
             }
           }
         }
@@ -322,6 +263,219 @@ Panel {
         opacity: 0.5
         font.family: root.contentFontFamily
         font.pixelSize: Style.font.caption
+      }
+
+      PanelSeparator { width: parent.width }
+
+      // Drawer Settings Collapsible Trigger (Toned down, clean & elegant)
+      Item {
+        id: settingsTrigger
+        width: parent.width
+        height: Style.space(26)
+
+        Rectangle {
+          anchors.fill: parent
+          radius: Style.cornerRadius
+          color: triggerMouse.containsMouse ? Util.alpha(root.contentForeground, 0.06) : "transparent"
+          Behavior on color { ColorAnimation { duration: 120 } }
+        }
+
+        Row {
+          anchors.left: parent.left
+          anchors.leftMargin: Style.space(4)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(6)
+
+          Text {
+            text: root.showSettings ? "󰅁" : "󰅂"
+            color: triggerMouse.containsMouse || root.showSettings ? Commons.Color.accent : Util.alpha(root.contentForeground, 0.5)
+            font.pixelSize: Style.font.caption
+            anchors.verticalCenter: parent.verticalCenter
+            Behavior on color { ColorAnimation { duration: 120 } }
+          }
+
+          Text {
+            text: "󰒓"
+            color: triggerMouse.containsMouse || root.showSettings ? Commons.Color.accent : Util.alpha(root.contentForeground, 0.5)
+            font.pixelSize: Style.font.caption
+            anchors.verticalCenter: parent.verticalCenter
+            Behavior on color { ColorAnimation { duration: 120 } }
+          }
+
+          Text {
+            text: "Drawer Settings"
+            color: triggerMouse.containsMouse || root.showSettings ? root.contentForeground : Util.alpha(root.contentForeground, 0.7)
+            font.family: root.contentFontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+            anchors.verticalCenter: parent.verticalCenter
+          }
+        }
+
+        Text {
+          anchors.right: parent.right
+          anchors.rightMargin: Style.space(6)
+          anchors.verticalCenter: parent.verticalCenter
+          text: root.showSettings ? "hide" : "configure"
+          color: triggerMouse.containsMouse || root.showSettings ? Commons.Color.accent : Util.alpha(root.contentForeground, 0.4)
+          font.family: root.contentFontFamily
+          font.pixelSize: Style.font.caption
+          Behavior on color { ColorAnimation { duration: 120 } }
+        }
+
+        MouseArea {
+          id: triggerMouse
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.showSettings = !root.showSettings
+        }
+      }
+
+      // Nested Collapsible Settings Box (Visually nested with tighter spacing)
+      Rectangle {
+        id: settingsNestedBox
+        visible: root.showSettings
+        width: parent.width
+        implicitHeight: settingsInnerCol.implicitHeight + Style.space(16)
+        radius: Style.cornerRadius
+        color: Util.alpha(root.contentForeground, 0.025)
+        border.color: Util.alpha(root.contentForeground, 0.06)
+        border.width: 1
+
+        Column {
+          id: settingsInnerCol
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.margins: Style.space(8)
+          spacing: Style.space(8)
+
+          // Position & Edge
+          Text {
+            text: "Position & Edge"
+            color: Util.alpha(root.contentForeground, 0.65)
+            font.family: root.contentFontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+          }
+
+          Dropdown {
+            width: parent.width
+            value: root.cfgPosition
+            options: [
+              { value: "top", label: "Top (Drop-down)" },
+              { value: "center-top", label: "Center-Top" },
+              { value: "bottom", label: "Bottom (Rise-up)" },
+              { value: "center-bottom", label: "Center-Bottom" },
+              { value: "left", label: "Left Edge (Drawer)" },
+              { value: "center-left", label: "Center-Left" },
+              { value: "right", label: "Right Edge (Drawer)" },
+              { value: "center-right", label: "Center-Right" },
+              { value: "center", label: "Center (Modal)" }
+            ]
+            onChanged: function(val) {
+              if (root.cfgPosition !== val) {
+                root.cfgPosition = val
+                root.saveConfig()
+              }
+            }
+          }
+
+          // Width Slider
+          Item {
+            width: parent.width
+            height: widthLabel.implicitHeight
+
+            Text {
+              id: widthLabel
+              text: "Width"
+              color: Util.alpha(root.contentForeground, 0.65)
+              font.family: root.contentFontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text {
+              text: (widthSlider.dragging ? Math.round(widthSlider.liveValue) : root.cfgWidth) + "%"
+              color: Commons.Color.accent
+              font.family: root.contentFontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+
+          PanelSlider {
+            id: widthSlider
+            width: parent.width
+            bar: root.bar
+            minimum: 20
+            maximum: 100
+            step: 5
+            integer: true
+            value: root.cfgWidth
+            onMoved: function(v) {
+              widthSlider.value = Math.round(v)
+              root.cfgWidth = Math.round(v)
+            }
+            onReleased: function(v) {
+              widthSlider.value = Math.round(v)
+              root.cfgWidth = Math.round(v)
+              root.saveConfig()
+            }
+          }
+
+          // Height Slider
+          Item {
+            width: parent.width
+            height: heightLabel.implicitHeight
+
+            Text {
+              id: heightLabel
+              text: "Height"
+              color: Util.alpha(root.contentForeground, 0.65)
+              font.family: root.contentFontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text {
+              text: (heightSlider.dragging ? Math.round(heightSlider.liveValue) : root.cfgHeight) + "%"
+              color: Commons.Color.accent
+              font.family: root.contentFontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+
+          PanelSlider {
+            id: heightSlider
+            width: parent.width
+            bar: root.bar
+            minimum: 10
+            maximum: 100
+            step: 5
+            integer: true
+            value: root.cfgHeight
+            onMoved: function(v) {
+              heightSlider.value = Math.round(v)
+              root.cfgHeight = Math.round(v)
+            }
+            onReleased: function(v) {
+              heightSlider.value = Math.round(v)
+              root.cfgHeight = Math.round(v)
+              root.saveConfig()
+            }
+          }
+        }
       }
 
       PanelSeparator { width: parent.width }
