@@ -28,8 +28,8 @@ Panel {
   // Live shortcut hint properties
   property string scToggle: "SUPER + \\"
   property string scCycle: "SUPER + ] / ["
-  property string scHolster: "SUPER + ALT + \\"
-  property string scSelect: "SUPER + SHIFT + \\"
+  property string scHolster: "SUPER + SHIFT + \\"
+  property string scSelect: "SUPER + CTRL + \\"
 
   property var holsteredWindows: []
 

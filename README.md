@@ -24,7 +24,7 @@ Window Holster is lightweight and relies entirely on standard Omarchy environmen
 - 🎮 **Quake-Style Drop-Down for Any App**: Terminal, browser, Slack, Spotify, notes, or editor — toggle any window between normal tiled layout and an edge drawer.
 - 🖱️ **macOS-Style Click-to-Focus (Option B)**: Moving your mouse cursor across background tiled windows does not steal focus or dismiss the drawer. The window only holsters when you click outside or switch workspaces.
 - 🎯 **Multi-Window Holster Pool**: Holster multiple windows at once without cluttering your workspace.
-- ⚡ **Direct Slot Jumps (Keys `1`-`9` and `0`)**: Hit `SUPER + SHIFT + \` and immediately tap `1`-`9` or `0` (for slot 10) to unholster that window instantly.
+- ⚡ **Direct Slot Jumps (Keys `1`-`9` and `0`)**: Hit `SUPER + CTRL + \` and immediately tap `1`-`9` or `0` (for slot 10) to unholster that window instantly.
 - ⌨️ **Vim & Keyboard Navigation**: Full keyboard scrolling with `j` / `k`, arrow keys, `PageUp` / `PageDown`, and `Home` / `End`.
 - 🔍 **Live Search with Dynamic Renumbering**: Tap `/` in the HUD to filter by window title or application class; search results are dynamically renumbered `1`, `2`, `3`...
 - 🧭 **Multi-Edge Drawer Positions**: Slide out from `top`, `bottom`, `left`, `right`, or pop up in the `center`.
@@ -70,8 +70,8 @@ The following shortcuts work out of the box:
 | `SUPER + \` | **Toggle Holster** | Quake-style drop-down: shows or hides the active/last-holstered window |
 | `SUPER + ]` | **Cycle Forward** | Cycles to the next holstered window |
 | `SUPER + [` | **Cycle Back** | Cycles to the previous holstered window |
-| `SUPER + ALT + \` | **Toggle Window Role** | Holsters active window into drawer (or unholsters it back to tiled layout) |
-| `SUPER + SHIFT + \` | **Interactive HUD** | Opens Native Selector HUD: keys `1`-`0` jump, `j`/`k` scroll, `/` search, `Esc` dismiss |
+| `SUPER + SHIFT + \` | **Toggle Window Role** | Holsters active window into drawer (or unholsters it back to tiled layout) |
+| `SUPER + CTRL + \` | **Interactive HUD** | Opens Native Selector HUD: keys `1`-`0` jump, `j`/`k` scroll, `/` search, `Esc` dismiss |
 
 ### Submap / HUD Keys:
 - **`1` – `9`**: Instantly activate slots 1 through 9.
@@ -96,14 +96,14 @@ local holster_bin = "omarchy-window-holster"
 hl.unbind("SUPER + backslash")
 hl.unbind("SUPER + bracketright")
 hl.unbind("SUPER + bracketleft")
-hl.unbind("SUPER + ALT + backslash")
 hl.unbind("SUPER + SHIFT + backslash")
+hl.unbind("SUPER + CTRL + backslash")
 
 o.bind("SUPER + backslash", "Window Holster: Toggle", holster_bin .. " toggle")
 o.bind("SUPER + bracketright", "Window Holster: Cycle Forward", holster_bin .. " cycle next")
 o.bind("SUPER + bracketleft", "Window Holster: Cycle Back", holster_bin .. " cycle prev")
-o.bind("SUPER + ALT + backslash", "Window Holster: Toggle Active Window", holster_bin .. " toggle-role")
-o.bind("SUPER + SHIFT + backslash", "Window Holster: Select Window", holster_bin .. " select")
+o.bind("SUPER + SHIFT + backslash", "Window Holster: Toggle Active Window", holster_bin .. " toggle-role")
+o.bind("SUPER + CTRL + backslash", "Window Holster: Select Window", holster_bin .. " select")
 
 hl.define_submap("holster", function()
   for i = 1, 9 do

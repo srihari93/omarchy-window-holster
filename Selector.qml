@@ -28,7 +28,7 @@ Item {
   // Live shortcut hint properties
   property string scToggle: "Super + \\"
   property string scCycle: "Super + [ / ]"
-  property string scHolster: "Super + Alt + \\"
+  property string scHolster: "Super + Shift + \\"
 
   // Shared Omarchy theme surface tokens
   property color background: Commons.Color.menu.background

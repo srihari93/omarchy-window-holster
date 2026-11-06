@@ -190,12 +190,13 @@ hl.unbind("SUPER + bracketright")
 hl.unbind("SUPER + bracketleft")
 hl.unbind("SUPER + ALT + backslash")
 hl.unbind("SUPER + SHIFT + backslash")
+hl.unbind("SUPER + CTRL + backslash")
 
 o.bind("SUPER + backslash", "Window Holster: Toggle", holster_bin .. " toggle")
 o.bind("SUPER + bracketright", "Window Holster: Cycle Forward", holster_bin .. " cycle next")
 o.bind("SUPER + bracketleft", "Window Holster: Cycle Back", holster_bin .. " cycle prev")
-o.bind("SUPER + ALT + backslash", "Window Holster: Toggle Active Window", holster_bin .. " toggle-role")
-o.bind("SUPER + SHIFT + backslash", "Window Holster: Select Window", holster_bin .. " select")
+o.bind("SUPER + SHIFT + backslash", "Window Holster: Toggle Active Window", holster_bin .. " toggle-role")
+o.bind("SUPER + CTRL + backslash", "Window Holster: Select Window", holster_bin .. " select")
 
 hl.define_submap("holster", function()
   for i = 1, 9 do
@@ -247,6 +248,7 @@ hl.unbind("SUPER + bracketright")
 hl.unbind("SUPER + bracketleft")
 hl.unbind("SUPER + ALT + backslash")
 hl.unbind("SUPER + SHIFT + backslash")
+hl.unbind("SUPER + CTRL + backslash")
 hl.define_submap("holster", function()
   for i = 1, 9 do
     hl.unbind(tostring(i))
@@ -1058,8 +1060,8 @@ def get_live_shortcuts():
         "cycle": "Super + [ / ]",
         "cycle_forward": "Super + ]",
         "cycle_back": "Super + [",
-        "toggle_role": "Super + Alt + \\",
-        "select": "Super + Shift + \\"
+        "toggle_role": "Super + Shift + \\",
+        "select": "Super + Ctrl + \\"
     }
     try:
         res = subprocess.run(["hyprctl", "-j", "binds"], capture_output=True, text=True, check=True)
