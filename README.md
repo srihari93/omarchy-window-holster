@@ -1,6 +1,6 @@
 # Omarchy Window Holster 🎯
 
-> **Quake-style drop-down, scratchpad, and multi-edge drawer for any window on Hyprland & Omarchy.**
+> **Holster any window into a Quake-style drop-down drawer on Hyprland & Omarchy.**
 
 <p align="center">
   <img src="preview.png" alt="Omarchy Window Holster Preview" width="780">
@@ -90,7 +90,7 @@ The following shortcuts work out of the box:
 Default shortcuts are persisted in `~/.config/hypr/bindings.lua`. You can edit or rebind any shortcut at any time:
 
 ```lua
--- Omarchy Window Holster (Quake-style drawer & scratchpad)
+-- Omarchy Window Holster (Quake drawer for any window)
 local holster_bin = "omarchy-window-holster"
 
 hl.unbind("SUPER + backslash")

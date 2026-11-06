@@ -148,7 +148,7 @@ Panel {
             font.bold: true
           }
           Text {
-            text: "Quake scratchpad & drawer"
+            text: "Quake drawer for any window"
             color: root.contentForeground
             opacity: 0.6
             font.family: root.contentFontFamily

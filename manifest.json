@@ -7,7 +7,7 @@
   "homepage": "https://github.com/srihari93/omarchy-window-holster",
   "repository": "https://github.com/srihari93/omarchy-window-holster.git",
   "license": "MIT",
-  "description": "Quake-style drop-down, scratchpad, and multi-edge drawer for any window on Hyprland with slot jumps, submap mode, and instant switching.",
+  "description": "Holster any window into a Quake-style drop-down drawer with slot jumps, submap mode, and instant switching.",
   "keywords": [
     "quake",
     "quake-style",

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 omarchy-window-holster
-Quake-style drop-down, scratchpad, and edge drawer for any window on Hyprland.
+Holster any window into a Quake-style drop-down drawer on Hyprland.
 """
 
 import sys
@@ -295,10 +295,10 @@ def setup_persistent_bindings():
                 # Already configured or customized by user
                 return
             with open(bindings_file, "a", encoding="utf-8") as f:
-                f.write("\n-- Omarchy Window Holster (Quake-style drawer & scratchpad)\n" + DEFAULT_BINDINGS_LUA.strip() + "\n")
+                f.write("\n-- Omarchy Window Holster (Quake drawer for any window)\n" + DEFAULT_BINDINGS_LUA.strip() + "\n")
         else:
             bindings_file.parent.mkdir(parents=True, exist_ok=True)
-            bindings_file.write_text("-- Omarchy Window Holster (Quake-style drawer & scratchpad)\n" + DEFAULT_BINDINGS_LUA.strip() + "\n", encoding="utf-8")
+            bindings_file.write_text("-- Omarchy Window Holster (Quake drawer for any window)\n" + DEFAULT_BINDINGS_LUA.strip() + "\n", encoding="utf-8")
     except Exception:
         pass
 
