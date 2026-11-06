@@ -11,6 +11,7 @@ BarWidget {
   readonly property string scriptPath: Qt.resolvedUrl("bin/omarchy-window-holster").toString().replace(/^file:\/\//, "")
   property var holsteredWindows: []
   property int windowCount: holsteredWindows.length
+  property string scHolster: "Super + Shift + \\"
 
   function refresh() {
     listProc.running = true
@@ -50,6 +51,14 @@ BarWidget {
   function close() {
     if (panelLoader.item && typeof panelLoader.item.close === "function")
       panelLoader.item.close()
+  }
+  readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
+
+  function closeForPopoutSwitch() {
+    if (panelLoader.item && typeof panelLoader.item.closeForPopoutSwitch === "function")
+      panelLoader.item.closeForPopoutSwitch()
+    else
+      root.close()
   }
   function togglePanel() {
     if (!panelLoader.item) return
@@ -92,7 +101,7 @@ BarWidget {
     function open(): void { root.open() }
     function close(): void { root.close() }
     function toggle(): void { root.togglePanel() }
-    function refresh(): void { root.refresh() }
+    function refresh(): void { root.broadcast("refresh") }
   }
 
   WidgetButton {
@@ -100,17 +109,21 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     text: root.windowCount > 0 ? ("󰖲 " + root.windowCount) : "󰖲"
+    tooltipText: root.windowCount > 0
+      ? ("Window Holster (" + root.windowCount + " " + (root.windowCount === 1 ? "window" : "windows") + ")\n• Left click: drawer settings\n• Right click: cycle windows")
+      : ("Window Holster (Empty)\n• " + root.scHolster + ": holster window\n• Left click: drawer settings")
     labelVisible: true
     horizontalMargin: 8
     verticalPadding: 6
 
     onPressed: function(b) {
       if (b === Qt.RightButton) {
-        root.togglePanel()
-      } else {
-        // Left click: cycle holstered windows
+        // Right click: cycle holstered windows
         Quickshell.execDetached([root.scriptPath, "cycle"])
         Qt.callLater(root.refresh)
+      } else {
+        // Left click: toggle drawer settings / management panel
+        root.togglePanel()
       }
     }
   }

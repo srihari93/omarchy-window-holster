@@ -29,7 +29,7 @@ Window Holster is lightweight and relies entirely on standard Omarchy environmen
 - 🔍 **Live Search with Dynamic Renumbering**: Tap `/` in the HUD to filter by window title or application class; search results are dynamically renumbered `1`, `2`, `3`...
 - 🧭 **Multi-Edge Drawer Positions**: Slide out from `top`, `bottom`, `left`, `right`, or pop up in the `center`.
 - 🎨 **Native Omarchy QML HUD**: Built with Omarchy's native `qs.Ui` component kit matching your active theme, blur, and font styling.
-- 📊 **Status Bar Widget**: Optional bar icon showing holstered window count, left-click to toggle, right-click to configure.
+- 📊 **Status Bar Widget**: Optional bar icon showing holstered window count, left-click for drawer panel, right-click to cycle windows.
 
 ---
 
@@ -166,7 +166,7 @@ Open the native configuration panel anytime:
 ```bash
 omarchy-window-holster config
 ```
-Or right-click the Window Holster icon on your Omarchy status bar.
+Or click the Window Holster icon on your Omarchy status bar (left-click opens the panel, right-click cycles windows).
 
 ---
 

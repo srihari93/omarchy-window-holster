@@ -118,12 +118,23 @@ def load_state():
         save_state(state)
     return state, live_clients
 
+def notify_bar_widget():
+    """Notify Omarchy status bar widget to refresh asynchronously."""
+    try:
+        subprocess.Popen(
+            ["omarchy-shell", "omarchy-window-holster.widget", "refresh"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        pass
+
 def save_state(state):
     try:
         with open(STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state, f)
     except Exception:
         pass
+    notify_bar_widget()
 
 # ---------------------------------------------------------------------------
 # Hyprland Lua dispatcher helpers

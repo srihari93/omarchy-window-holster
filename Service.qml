@@ -38,6 +38,23 @@ Item {
   }
 
   IpcHandler {
+    target: "omarchy-window-holster"
+
+    function toggle(): string { return serviceIpc.toggle() }
+    function cycle(): string { return serviceIpc.cycle() }
+    function cycleNext(): string { return serviceIpc.cycleNext() }
+    function cyclePrev(): string { return serviceIpc.cyclePrev() }
+    function toggleRole(): string { return serviceIpc.toggleRole() }
+    function activate(slot: int): string { return serviceIpc.activate(slot) }
+    function select(): string { return serviceIpc.select() }
+    function showHud(): string { return serviceIpc.showHud() }
+    function hideHud(): string { return serviceIpc.hideHud() }
+    function toggleHud(): string { return serviceIpc.toggleHud() }
+    function resetAll(): string { return serviceIpc.resetAll() }
+  }
+
+  IpcHandler {
+    id: serviceIpc
     target: "omarchy.window-holster"
 
     function toggle(): string {
