@@ -1,6 +1,6 @@
 # Omarchy Window Holster 🎯
 
-> **Holster any window into a Quake-style drop-down drawer on Hyprland & Omarchy.**
+> **Universal Quake-Style Drop-Down Drawer for Any Application on Omarchy & Hyprland.**
 
 <p align="center">
   <img src="preview.png" alt="Omarchy Window Holster Preview" width="780">
@@ -10,10 +10,35 @@ Turn **any application or window** into a smooth, sliding drop-down console. Hol
 
 ---
 
+## 🤝 Built for Omarchy 4.5: The Universal Quake Drawer
+
+In **Omarchy 4.5**, the desktop introduced a built-in Quake console (`SUPER + ` ` `) dedicated to quick AI coding agents. 
+
+**Window Holster** expands that exact beloved workflow to **every application on your system**:
+- 🌐 **Browser Quake Drawer**: Drop ChatGPT, Claude, GitHub, DevDocs, or Dash down over your code without leaving your active workspace.
+- 💬 **Communication Drawer**: Stash Slack, Discord, or WhatsApp off-screen and summon them instantly.
+- 🛠️ **Multi-Terminal Pool**: Keep htop, btop, database REPLs, or long-running logs tucked away.
+- 🎵 **Media & Utilities**: Spotify, Obsidian notes, or password manager on demand.
+- 🔄 **Seamless Omarchy 4.5 Interop**: Move windows effortlessly between Omarchy's `special:qconsole` (`SUPER + SHIFT + ` ` `), Window Holster (`SUPER + SHIFT + \`), and regular workspaces (`SUPER + SHIFT + 1–10`).
+
+### Omarchy 4.5 Quake Console vs. Window Holster
+
+| Capability | Omarchy 4.5 Built-In (`SUPER + ` ` `) | Window Holster (`SUPER + \`) |
+| :--- | :--- | :--- |
+| **Application Scope** | AI Coding Agents / Single terminal | **Any Application or Window** (Browser, Slack, IDE, Spotify, Notes) |
+| **Capacity** | Single shared special workspace | **Multi-window pool** with independent 1:1 workspace isolation |
+| **Window Switching** | Single toggle | **1–10 instant slot jumps**, sequential cycling (`SUPER + ]` / `[`), Vim HUD |
+| **Edge Placement** | Top edge only (fixed) | **Top, Bottom, Left, Right, or Center Modal** |
+| **Mouse Interaction** | Standard hover/sloppy focus | **macOS-Style Click-to-Focus** (hovering background does not dismiss) |
+| **Status Bar Presence** | None | **Dynamic 3-state vector SVG widget** (`empty` → `stashed` → `open`) |
+| **Customization** | Lua gaps editing | **Native graphical preferences panel** with live sliders & edge selector |
+
+---
+
 ## 📋 Dependencies
 
 Window Holster is lightweight and relies entirely on standard Omarchy environment tools:
-- **Hyprland** (tested on Hyprland >= 0.40)
+- **Hyprland** (tested on Hyprland >= 0.40 & Omarchy 4.5)
 - **Python 3** (standard library only — zero pip dependencies)
 - **Quickshell** (included with Omarchy)
 
@@ -31,6 +56,7 @@ Window Holster is lightweight and relies entirely on standard Omarchy environmen
 - 🎨 **Native Omarchy QML HUD**: Built with Omarchy's native `qs.Ui` component kit matching your active theme, blur, and font styling.
 - 🎨 **Theme-Adaptive Vector Icons**: Clean handcrafted SVG vector icons that dynamically inherit Omarchy bar theme colors via `currentColor` and `MultiEffect` colorization.
 - 📊 **Dynamic 3-State Vector Bar Widget**: Tactical holster vector icon (`empty` → `stashed` → `open`) with dynamic counter badge, left-click for drawer panel, right-click to cycle windows.
+- 🛡️ **Linux-Native Crash Safety**: Backed by `prctl(PR_SET_PDEATHSIG)` watchdog — if the shell restarts or exits, all hidden windows are immediately returned to visible workspaces.
 
 ---
 
@@ -173,7 +199,7 @@ Or click the Window Holster icon on your Omarchy status bar (left-click opens th
 
 ## 🔍 Attention & Discovery Keywords
 
-`quake`, `quake-style`, `quake-mode`, `guake`, `yakuake`, `tilda`, `drop-down`, `dropdown`, `dropdown-terminal`, `visor`, `totalterminal`, `holster`, `window-holster`, `scratchpad`, `scratchpads`, `pyprland`, `drawer`, `window-drawer`, `sliding-window`, `edge-drawer`, `side-panel`, `dock`, `tdrop`, `hyprland`, `hyprland-scratchpad`, `hyprland-plugin`, `wayland`, `omarchy`, `omarchy-plugin`, `special-workspace`, `window-manager`, `tiling`, `submap`, `slot-selector`, `quick-switch`, `quick-terminal`, `multi-window`, `floating`, `overlay`, `popup`, `hud`, `hotkey`, `shortcuts`, `productivity`, `tui`
+`omarchy-4-5`, `omarchy-quake`, `qconsole`, `quake-console`, `agent-drawer`, `agent-console`, `universal-quake`, `quake-for-apps`, `multi-window-quake`, `browser-quake`, `dropdown-drawer`, `app-stash`, `smart-scratchpad`, `sliding-console`, `terminal-drawer`, `top-drawer`, `omarchy-extension`, `quickshell-plugin`, `hyprland-0-56`, `quake`, `quake-style`, `quake-mode`, `guake`, `yakuake`, `tilda`, `drop-down`, `dropdown`, `dropdown-terminal`, `visor`, `totalterminal`, `holster`, `window-holster`, `scratchpad`, `scratchpads`, `pyprland`, `drawer`, `window-drawer`, `sliding-window`, `edge-drawer`, `side-panel`, `dock`, `tdrop`, `hyprland`, `hyprland-scratchpad`, `hyprland-plugin`, `wayland`, `omarchy`, `omarchy-plugin`, `special-workspace`, `window-manager`, `tiling`, `submap`, `slot-selector`, `quick-switch`, `quick-terminal`, `multi-window`, `floating`, `overlay`, `popup`, `hud`, `hotkey`, `shortcuts`, `productivity`, `tui`
 
 ---
 
