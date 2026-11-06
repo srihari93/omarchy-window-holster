@@ -24,6 +24,12 @@ Panel {
   property int cfgWidth: 100
   property int cfgHeight: 40
 
+  // Live shortcut hint properties
+  property string scToggle: "SUPER + \\"
+  property string scCycle: "SUPER + ] / ["
+  property string scHolster: "SUPER + ALT + \\"
+  property string scSelect: "SUPER + SHIFT + \\"
+
   property var holsteredWindows: []
 
   readonly property color contentForeground: bar ? bar.foreground : Commons.Color.foreground
@@ -73,6 +79,12 @@ Panel {
             if (cfg.height !== undefined) {
               root.cfgHeight = cfg.height
               heightSlider.value = cfg.height
+            }
+            if (cfg.shortcuts) {
+              if (cfg.shortcuts.toggle) root.scToggle = cfg.shortcuts.toggle.toUpperCase()
+              if (cfg.shortcuts.cycle) root.scCycle = cfg.shortcuts.cycle.toUpperCase()
+              if (cfg.shortcuts.toggle_role) root.scHolster = cfg.shortcuts.toggle_role.toUpperCase()
+              if (cfg.shortcuts.select) root.scSelect = cfg.shortcuts.select.toUpperCase()
             }
           }
         } catch (e) {}
@@ -305,7 +317,7 @@ Panel {
 
       Text {
         visible: root.holsteredWindows.length === 0
-        text: "No windows holstered.\nFocus a window and press SUPER + ALT + \\"
+        text: "No windows holstered.\nFocus a window and press " + root.scHolster
         color: root.contentForeground
         opacity: 0.5
         font.family: root.contentFontFamily
@@ -320,35 +332,35 @@ Panel {
         spacing: Style.space(2)
 
         Text {
-          text: "Default Shortcuts:"
+          text: "Active Shortcuts:"
           color: root.contentForeground
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.caption
           font.bold: true
         }
         Text {
-          text: "• SUPER + \\ : Toggle drop-down (show/hide)"
+          text: "• " + root.scToggle + " : Toggle drop-down (show/hide)"
           color: root.contentForeground
           opacity: 0.7
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.caption
         }
         Text {
-          text: "• SUPER + ] / [ : Cycle next / previous"
+          text: "• " + root.scCycle + " : Cycle next / previous"
           color: root.contentForeground
           opacity: 0.7
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.caption
         }
         Text {
-          text: "• SUPER + ALT + \\ : Holster / unholster window"
+          text: "• " + root.scHolster + " : Holster / unholster window"
           color: root.contentForeground
           opacity: 0.7
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.caption
         }
         Text {
-          text: "• SUPER + SHIFT + \\ : Interactive HUD (1-0 jumps)"
+          text: "• " + root.scSelect + " : Interactive HUD (1-0 jumps)"
           color: root.contentForeground
           opacity: 0.7
           font.family: root.contentFontFamily

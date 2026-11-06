@@ -25,6 +25,11 @@ Item {
   property int selectedIndex: 0
   property var items: []
 
+  // Live shortcut hint properties
+  property string scToggle: "Super + \\"
+  property string scCycle: "Super + [ / ]"
+  property string scHolster: "Super + Alt + \\"
+
   // Shared Omarchy theme surface tokens
   property color background: Commons.Color.menu.background
   property color foreground: Commons.Color.menu.text
@@ -121,6 +126,26 @@ Item {
       root.activateSlot(root.filteredItems[root.selectedIndex].slot)
     }
   }
+
+  Process {
+    id: configProc
+    command: [root.scriptPath, "get-config"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          var cfg = JSON.parse(text)
+          if (cfg && cfg.shortcuts) {
+            if (cfg.shortcuts.toggle) root.scToggle = cfg.shortcuts.toggle
+            if (cfg.shortcuts.cycle) root.scCycle = cfg.shortcuts.cycle
+            if (cfg.shortcuts.toggle_role) root.scHolster = cfg.shortcuts.toggle_role
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  onOpenedChanged: if (opened) configProc.running = true
+  Component.onCompleted: configProc.running = true
 
   Process {
     id: listProc
@@ -507,7 +532,7 @@ Item {
 
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Focus any window and press Super + Alt + \\ to holster it"
+            text: "Focus any window and press " + root.scHolster + " to holster it"
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
             color: Util.alpha(root.foreground, 0.6)
@@ -719,7 +744,7 @@ Item {
           spacing: Style.space(12)
 
           Text {
-            text: "Super + \\ Toggle"
+            text: root.scToggle + " Toggle"
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
             color: Util.alpha(root.foreground, 0.5)
@@ -733,7 +758,7 @@ Item {
           }
 
           Text {
-            text: "Super + [ / ] Cycle"
+            text: root.scCycle + " Cycle"
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
             color: Util.alpha(root.foreground, 0.5)
@@ -747,7 +772,7 @@ Item {
           }
 
           Text {
-            text: "Super + Alt + \\ Holster"
+            text: root.scHolster + " Holster"
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
             color: Util.alpha(root.foreground, 0.5)

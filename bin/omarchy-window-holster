@@ -1051,6 +1051,80 @@ def cmd_config():
     )
 
 
+def get_live_shortcuts():
+    """Query hyprctl binds and resolve human-readable labels for active holster shortcuts."""
+    defaults = {
+        "toggle": "Super + \\",
+        "cycle": "Super + [ / ]",
+        "cycle_forward": "Super + ]",
+        "cycle_back": "Super + [",
+        "toggle_role": "Super + Alt + \\",
+        "select": "Super + Shift + \\"
+    }
+    try:
+        res = subprocess.run(["hyprctl", "-j", "binds"], capture_output=True, text=True, check=True)
+        binds = json.loads(res.stdout) if res.stdout.strip() else []
+    except Exception:
+        return defaults
+
+    found = {}
+    key_map = {
+        "backslash": "\\",
+        "bracketright": "]",
+        "bracketleft": "[",
+        "period": ".",
+        "comma": ",",
+        "slash": "/",
+        "grave": "`",
+        "space": "Space",
+        "escape": "Esc",
+        "return": "Enter"
+    }
+
+    for b in binds:
+        if b.get("submap") != "":
+            continue
+        desc = b.get("description", "")
+        arg = b.get("arg", "")
+        action = None
+        if desc == "Window Holster: Toggle" or "omarchy-window-holster toggle" in arg:
+            action = "toggle"
+        elif desc == "Window Holster: Cycle Forward" or "omarchy-window-holster cycle next" in arg:
+            action = "cycle_forward"
+        elif desc == "Window Holster: Cycle Back" or "omarchy-window-holster cycle prev" in arg:
+            action = "cycle_back"
+        elif desc == "Window Holster: Toggle Active Window" or "omarchy-window-holster toggle-role" in arg:
+            action = "toggle_role"
+        elif desc == "Window Holster: Select Window" or "omarchy-window-holster select" in arg:
+            action = "select"
+
+        if action and action not in found:
+            mm = b.get("modmask", 0)
+            mods = []
+            if mm & 64: mods.append("Super")
+            if mm & 4:  mods.append("Ctrl")
+            if mm & 8:  mods.append("Alt")
+            if mm & 1:  mods.append("Shift")
+            raw_key = b.get("key", "")
+            key_str = key_map.get(raw_key.lower(), raw_key.capitalize())
+            found[action] = " + ".join(mods + [key_str]) if mods else key_str
+
+    fwd = found.get("cycle_forward", defaults["cycle_forward"])
+    back = found.get("cycle_back", defaults["cycle_back"])
+    fwd_key = fwd.split("+")[-1].strip()
+    back_key = back.split("+")[-1].strip()
+    fwd_mods = "+".join(fwd.split("+")[:-1]).strip()
+    back_mods = "+".join(back.split("+")[:-1]).strip()
+
+    if fwd_mods and fwd_mods == back_mods:
+        combined = f"{fwd_mods} + {back_key} / {fwd_key}" if (back_key == "[" and fwd_key == "]") else f"{fwd_mods} + {fwd_key} / {back_key}"
+    else:
+        combined = f"{fwd} / {back}"
+
+    found["cycle"] = combined
+    return {**defaults, **found}
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -1093,7 +1167,9 @@ def main():
     elif cmd == "list":
         cmd_list_json()
     elif cmd == "get-config":
-        print(json.dumps(load_config()))
+        cfg = load_config()
+        cfg["shortcuts"] = get_live_shortcuts()
+        print(json.dumps(cfg))
     elif cmd == "set-config" and len(sys.argv) >= 3:
         try:
             cfg = json.loads(sys.argv[2])
