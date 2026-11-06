@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+  <!-- Holstered Window Card (Tucked Inside) -->
+  <rect x="7" y="3.5" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="currentColor" fill-opacity="0.12" />
+  <line x1="7" y1="6.5" x2="17" y2="6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+  <circle cx="9.5" cy="5" r="0.65" fill="currentColor" />
+  <!-- Holster Pouch Body -->
+  <path d="M5 9.5v8.5a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-8.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="currentColor" fill-opacity="0.08" />
+  <!-- Ergonomic Pocket Rim Foreground Scoop -->
+  <path d="M5 9.5c0 0 3 3 7 3s7-3 7-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Holster Snap Rivet -->
+  <circle cx="12" cy="16.5" r="1.25" fill="currentColor" />
+</svg>

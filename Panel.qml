@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
@@ -132,11 +133,24 @@ Panel {
         width: parent.width
         spacing: Style.space(8)
 
-        Text {
-          text: "󰖲"
-          color: Commons.Color.accent
-          font.pixelSize: Style.font.title
+        Item {
+          width: Style.space(22)
+          height: Style.space(22)
           anchors.verticalCenter: parent.verticalCenter
+
+          Image {
+            anchors.fill: parent
+            source: Qt.resolvedUrl("icons/holster/open.svg")
+            sourceSize.width: Style.space(22)
+            sourceSize.height: Style.space(22)
+            fillMode: Image.PreserveAspectFit
+            layer.enabled: true
+            layer.effect: MultiEffect {
+              brightness: 1.0
+              colorization: 1.0
+              colorizationColor: Commons.Color.accent
+            }
+          }
         }
 
         Column {

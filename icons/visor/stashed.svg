@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+  <!-- Top Bezel Rail -->
+  <line x1="3" y1="4" x2="21" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <!-- Stashed / Retracted Compact Visor Console -->
+  <rect x="5" y="4" width="14" height="6.5" rx="1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="currentColor" fill-opacity="0.12" />
+  <!-- Retracted Console Prompt Hint -->
+  <line x1="8" y1="7.25" x2="11" y2="7.25" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+  <circle cx="15.5" cy="7.25" r="0.75" fill="currentColor" />
+  <!-- Descent Ready Chevron -->
+  <path d="M10 14l2 2 2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M10 17.5l2 2 2-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+</svg>

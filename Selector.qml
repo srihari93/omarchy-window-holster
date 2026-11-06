@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Controls
 import qs.Commons
 import qs.Commons as Commons
@@ -406,13 +407,25 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(8)
 
-            Text {
+            Item {
               id: headerIcon
-              text: "󰖲"
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.heading
-              color: Commons.Color.accent
+              width: Style.space(20)
+              height: Style.space(20)
               anchors.verticalCenter: parent.verticalCenter
+
+              Image {
+                anchors.fill: parent
+                source: Qt.resolvedUrl("icons/holster/open.svg")
+                sourceSize.width: Style.space(20)
+                sourceSize.height: Style.space(20)
+                fillMode: Image.PreserveAspectFit
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                  brightness: 1.0
+                  colorization: 1.0
+                  colorizationColor: Commons.Color.accent
+                }
+              }
             }
 
             Text {
@@ -617,12 +630,25 @@ Item {
           topPadding: Style.space(16)
           bottomPadding: Style.space(16)
 
-          Text {
+          Item {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "󰖲"
-            font.family: root.fontFamily
-            font.pixelSize: Style.space(36)
-            color: Util.alpha(root.foreground, 0.4)
+            width: Style.space(48)
+            height: Style.space(48)
+
+            Image {
+              anchors.fill: parent
+              source: Qt.resolvedUrl("icons/holster/empty.svg")
+              sourceSize.width: Style.space(48)
+              sourceSize.height: Style.space(48)
+              fillMode: Image.PreserveAspectFit
+              opacity: 0.4
+              layer.enabled: true
+              layer.effect: MultiEffect {
+                brightness: 1.0
+                colorization: 1.0
+                colorizationColor: root.foreground
+              }
+            }
           }
 
           Text {

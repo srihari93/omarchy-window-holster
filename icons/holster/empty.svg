@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+  <!-- Ghost Unloaded Window Frame (Dashed) -->
+  <path d="M7.5 9.5V5a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 16.5 5v4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 2.5" opacity="0.4" />
+  <line x1="10.5" y1="6.5" x2="13.5" y2="6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4" />
+  <!-- Holster Pouch Body -->
+  <path d="M5 9.5v8.5a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-8.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="currentColor" fill-opacity="0.04" />
+  <!-- Contoured Ergonomic Pocket Rim -->
+  <path d="M5 9.5c0 0 3 3 7 3s7-3 7-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Holster Accent Rivet -->
+  <circle cx="12" cy="16.5" r="1.25" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.6" />
+</svg>

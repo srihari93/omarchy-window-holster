@@ -29,7 +29,8 @@ Window Holster is lightweight and relies entirely on standard Omarchy environmen
 - 🔍 **Live Search with Dynamic Renumbering**: Tap `/` in the HUD to filter by window title or application class; search results are dynamically renumbered `1`, `2`, `3`...
 - 🧭 **Multi-Edge Drawer Positions**: Slide out from `top`, `bottom`, `left`, `right`, or pop up in the `center`.
 - 🎨 **Native Omarchy QML HUD**: Built with Omarchy's native `qs.Ui` component kit matching your active theme, blur, and font styling.
-- 📊 **Status Bar Widget**: Optional bar icon showing holstered window count, left-click for drawer panel, right-click to cycle windows.
+- 🎨 **Theme-Adaptive Vector Icons**: Clean handcrafted SVG vector icons that dynamically inherit Omarchy bar theme colors via `currentColor` and `MultiEffect` colorization.
+- 📊 **Dynamic 3-State Vector Bar Widget**: Tactical holster vector icon (`empty` → `stashed` → `open`) with dynamic counter badge, left-click for drawer panel, right-click to cycle windows.
 
 ---
 

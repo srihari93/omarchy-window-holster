@@ -775,7 +775,7 @@ def cmd_select():
             title = client.get("title", "Window").replace("\t", " ").replace("\n", " ").strip()
             app_cls = client.get("class", "").replace("\t", " ").replace("\n", " ").strip()
             slot = i + 1
-            active_glyph = "▶" if i == state["active_index"] else "󰖲"
+            active_glyph = "▶" if i == state["active_index"] else "󰔸"
             addr_hint = addr[-4:] if len(addr) >= 4 else addr
             options.append(f"{active_glyph}\t{slot}. {title}\t[Slot {slot} #{addr_hint}] {app_cls}")
 
