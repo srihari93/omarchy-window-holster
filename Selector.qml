@@ -395,71 +395,175 @@ Item {
         spacing: root.contentSpacing
 
         // --- Header Row ---
-        Row {
-          id: headerRow
+        Item {
+          id: headerContainer
           width: parent.width
-          spacing: Style.space(8)
+          height: Math.max(leftHeaderRow.implicitHeight, topHintsRow.implicitHeight, Style.space(24))
 
-          Text {
-            id: headerIcon
-            text: "󰖲"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.heading
-            color: Commons.Color.accent
+          Row {
+            id: leftHeaderRow
+            anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-          }
-
-          Text {
-            id: headerTitle
-            text: "Window Holster"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.heading
-            font.bold: true
-            color: root.foreground
-            anchors.verticalCenter: parent.verticalCenter
-          }
-
-          Rectangle {
-            id: countBadge
-            visible: root.items.length > 0
-            height: Style.space(20)
-            width: countText.implicitWidth + Style.space(12)
-            radius: Style.cornerRadius
-            color: Util.alpha(Commons.Color.accent, 0.2)
-            anchors.verticalCenter: parent.verticalCenter
+            spacing: Style.space(8)
 
             Text {
-              id: countText
-              anchors.centerIn: parent
-              text: root.items.length + (root.items.length === 1 ? " window" : " windows")
+              id: headerIcon
+              text: "󰖲"
               font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              font.bold: true
+              font.pixelSize: Style.font.heading
               color: Commons.Color.accent
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text {
+              id: headerTitle
+              text: "Window Holster"
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.heading
+              font.bold: true
+              color: root.foreground
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Rectangle {
+              id: countBadge
+              visible: root.items.length > 0
+              height: Style.space(20)
+              width: countText.implicitWidth + Style.space(12)
+              radius: Style.cornerRadius
+              color: Util.alpha(Commons.Color.accent, 0.2)
+              anchors.verticalCenter: parent.verticalCenter
+
+              Text {
+                id: countText
+                anchors.centerIn: parent
+                text: root.items.length + (root.items.length === 1 ? " window" : " windows")
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                color: Commons.Color.accent
+              }
             }
           }
 
-          Item {
-            // Spacer to push right badge
-            width: Math.max(Style.space(8), headerRow.width - headerIcon.width - headerTitle.width - (countBadge.visible ? countBadge.width : 0) - hintBadge.width - Style.space(32))
-            height: 1
-          }
-
-          Rectangle {
-            id: hintBadge
-            height: Style.space(22)
-            width: hintBadgeText.implicitWidth + Style.space(12)
-            radius: Style.cornerRadius
-            color: Util.alpha(root.foreground, 0.08)
+          Row {
+            id: topHintsRow
+            anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
+            spacing: Style.space(6)
 
-            Text {
-              id: hintBadgeText
-              anchors.centerIn: parent
-              text: root.searchMode ? "[Esc] Exit Search" : "[1-0] Jump  [j/k] Scroll  [/] Search"
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              color: Util.alpha(root.foreground, 0.7)
+            // Search Mode Badge
+            Rectangle {
+              visible: root.searchMode
+              height: Style.space(22)
+              width: escRow.implicitWidth + Style.space(14)
+              radius: Style.cornerRadius
+              color: Util.alpha(root.foreground, 0.08)
+
+              Row {
+                id: escRow
+                anchors.centerIn: parent
+                spacing: Style.space(5)
+
+                Text {
+                  text: "Esc"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  color: Util.alpha(root.foreground, 0.75)
+                }
+                Text {
+                  text: "Exit Search"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  color: Util.alpha(root.foreground, 0.55)
+                }
+              }
+            }
+
+            // Normal Mode Badges: Jump, Scroll, Search
+            Rectangle {
+              visible: !root.searchMode
+              height: Style.space(22)
+              width: jumpRow.implicitWidth + Style.space(14)
+              radius: Style.cornerRadius
+              color: Util.alpha(root.foreground, 0.08)
+
+              Row {
+                id: jumpRow
+                anchors.centerIn: parent
+                spacing: Style.space(5)
+
+                Text {
+                  text: "1-0"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  color: Util.alpha(root.foreground, 0.75)
+                }
+                Text {
+                  text: "Jump"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  color: Util.alpha(root.foreground, 0.55)
+                }
+              }
+            }
+
+            Rectangle {
+              visible: !root.searchMode
+              height: Style.space(22)
+              width: scrollRow.implicitWidth + Style.space(14)
+              radius: Style.cornerRadius
+              color: Util.alpha(root.foreground, 0.08)
+
+              Row {
+                id: scrollRow
+                anchors.centerIn: parent
+                spacing: Style.space(5)
+
+                Text {
+                  text: "j/k"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  color: Util.alpha(root.foreground, 0.75)
+                }
+                Text {
+                  text: "Scroll"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  color: Util.alpha(root.foreground, 0.55)
+                }
+              }
+            }
+
+            Rectangle {
+              visible: !root.searchMode
+              height: Style.space(22)
+              width: searchRow.implicitWidth + Style.space(14)
+              radius: Style.cornerRadius
+              color: Util.alpha(root.foreground, 0.08)
+
+              Row {
+                id: searchRow
+                anchors.centerIn: parent
+                spacing: Style.space(5)
+
+                Text {
+                  text: "/"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  color: Util.alpha(root.foreground, 0.75)
+                }
+                Text {
+                  text: "Search"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  color: Util.alpha(root.foreground, 0.55)
+                }
+              }
             }
           }
         }
@@ -741,41 +845,87 @@ Item {
 
         Row {
           anchors.horizontalCenter: parent.horizontalCenter
-          spacing: Style.space(12)
+          spacing: Style.space(8)
 
-          Text {
-            text: root.scToggle + " Toggle"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            color: Util.alpha(root.foreground, 0.5)
+          Rectangle {
+            height: Style.space(22)
+            width: tglRow.implicitWidth + Style.space(16)
+            radius: Style.cornerRadius
+            color: Util.alpha(root.foreground, 0.08)
+
+            Row {
+              id: tglRow
+              anchors.centerIn: parent
+              spacing: Style.space(5)
+
+              Text {
+                text: root.scToggle
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                color: Util.alpha(root.foreground, 0.75)
+              }
+              Text {
+                text: "Toggle"
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                color: Util.alpha(root.foreground, 0.55)
+              }
+            }
           }
 
-          Text {
-            text: "•"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            color: Util.alpha(root.foreground, 0.3)
+          Rectangle {
+            height: Style.space(22)
+            width: cycRow.implicitWidth + Style.space(16)
+            radius: Style.cornerRadius
+            color: Util.alpha(root.foreground, 0.08)
+
+            Row {
+              id: cycRow
+              anchors.centerIn: parent
+              spacing: Style.space(5)
+
+              Text {
+                text: root.scCycle
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                color: Util.alpha(root.foreground, 0.75)
+              }
+              Text {
+                text: "Cycle"
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                color: Util.alpha(root.foreground, 0.55)
+              }
+            }
           }
 
-          Text {
-            text: root.scCycle + " Cycle"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            color: Util.alpha(root.foreground, 0.5)
-          }
+          Rectangle {
+            height: Style.space(22)
+            width: hlsRow.implicitWidth + Style.space(16)
+            radius: Style.cornerRadius
+            color: Util.alpha(root.foreground, 0.08)
 
-          Text {
-            text: "•"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            color: Util.alpha(root.foreground, 0.3)
-          }
+            Row {
+              id: hlsRow
+              anchors.centerIn: parent
+              spacing: Style.space(5)
 
-          Text {
-            text: root.scHolster + " Holster"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            color: Util.alpha(root.foreground, 0.5)
+              Text {
+                text: root.scHolster
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+                color: Util.alpha(root.foreground, 0.75)
+              }
+              Text {
+                text: "Holster"
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                color: Util.alpha(root.foreground, 0.55)
+              }
+            }
           }
         }
       }
