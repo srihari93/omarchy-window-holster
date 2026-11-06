@@ -3,7 +3,7 @@
 > **Universal Quake-Style Drop-Down Drawer for Any Application on Omarchy & Hyprland.**
 
 <p align="center">
-  <img src="preview.png" alt="Omarchy Window Holster Preview" width="780">
+  <img src="preview.png" alt="Omarchy Window Holster Overview" width="820">
 </p>
 
 Turn **any application or window** into a smooth, sliding drop-down console. Holster multiple windows at your screen edges and draw them on demand with single-keystroke slot jumps, sequential cycling, or fuzzy search.
@@ -57,6 +57,49 @@ Window Holster is lightweight and relies entirely on standard Omarchy environmen
 - 🎨 **Theme-Adaptive Vector Icons**: Clean handcrafted SVG vector icons that dynamically inherit Omarchy bar theme colors via `currentColor` and `MultiEffect` colorization.
 - 📊 **Dynamic 3-State Vector Bar Widget**: Tactical holster vector icon (`empty` → `stashed` → `open`) with dynamic counter badge, left-click for drawer panel, right-click to cycle windows.
 - 🛡️ **Linux-Native Crash Safety**: Backed by `prctl(PR_SET_PDEATHSIG)` watchdog — if the shell restarts or exits, all hidden windows are immediately returned to visible workspaces.
+
+---
+
+## 🎬 Live Demos & Feature Showcase
+
+### 1. ⚡ Core Quake Workflow: Holster, Drop-Down & Cycle
+Stash any window into your drawer with `SUPER + SHIFT + \`. Drop it down instantly over your code with `SUPER + \`, cycle through stashed apps with `SUPER + ]`, and unholster back to a tiled layout whenever you're done.
+
+<p align="center">
+  <img src="assets/core-workflow.gif" alt="Omarchy Window Holster Core Workflow" width="800">
+</p>
+
+---
+
+### 2. 🎯 Interactive Selector HUD & Direct Slot Jumps
+Press `SUPER + CTRL + \` to summon the native QML Selector HUD. Jump instantly to any window by pressing its slot number (`1`–`9` or `0` for 10), scroll with Vim keys (`j` / `k`), or tap `/` for real-time fuzzy filtering.
+
+<p align="center">
+  <img src="assets/hud-search.gif" alt="Instant Slot Jumps and Selector HUD" width="800">
+</p>
+
+---
+
+### 3. 📊 Dynamic Topbar GUI & Preferences Panel
+Click the Window Holster widget on your Omarchy status bar for instant management:
+- **Left-Click**: Opens the native preferences panel displaying your active window pool (with individual `Unholster` and `Restore All` actions), live `Width` and `Height` sliders, edge position dropdown, and shortcut reference cheat sheet.
+- **Right-Click**: Cycles directly through holstered windows with the Quake drawer sliding down over your workspace.
+
+<p align="center">
+  <img src="assets/bar-gui.gif" alt="Dynamic Topbar GUI and Preferences Panel" width="800">
+</p>
+
+---
+
+### 4. 🧭 Multi-Edge Docking (Top, Left, Bottom, Right)
+Window Holster isn't limited to a top drop-down. Configure any window to slide out from any screen edge:
+- **Center-Top**: Classic Quake-style drop-down drawer.
+- **Left / Right Sidebar**: Vertical sliding drawer for file managers, chat, or documentation.
+- **Center-Bottom**: Slide-up console tray for terminal logs and REPLs.
+
+<p align="center">
+  <img src="assets/edge-docking.gif" alt="Multi-Edge Docking" width="800">
+</p>
 
 ---
 
