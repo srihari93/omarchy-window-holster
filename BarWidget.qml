@@ -183,6 +183,7 @@ BarWidget {
         visible: root.windowCount > 0
         anchors.verticalCenter: parent.verticalCenter
         text: String(root.windowCount)
+        textFormat: Text.PlainText
         color: root.hasActiveWindow ? Commons.Color.accent : button.foreground
         font.family: button.fontFamily
         font.pixelSize: button.fontSize

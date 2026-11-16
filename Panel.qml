@@ -242,6 +242,7 @@ Panel {
 
               Text {
                 text: modelData.title || "Window"
+                textFormat: Text.PlainText
                 color: root.contentForeground
                 font.family: root.contentFontFamily
                 font.pixelSize: Style.font.bodySmall

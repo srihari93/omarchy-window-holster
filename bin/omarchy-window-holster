@@ -347,9 +347,18 @@ def cmd_setup(persist=False):
         local_bin.mkdir(parents=True, exist_ok=True)
         symlink_target = local_bin / "omarchy-window-holster"
         current_bin = Path(__file__).resolve()
-        if symlink_target.is_symlink() or symlink_target.exists():
-            symlink_target.unlink()
-        symlink_target.symlink_to(current_bin)
+        # Only manage the target if it does not exist, or if it is already a symlink.
+        # Never delete an existing regular file or directory that an unrelated program or user placed there.
+        if symlink_target.is_symlink():
+            try:
+                if symlink_target.resolve() != current_bin:
+                    symlink_target.unlink()
+                    symlink_target.symlink_to(current_bin)
+            except Exception:
+                symlink_target.unlink()
+                symlink_target.symlink_to(current_bin)
+        elif not symlink_target.exists():
+            symlink_target.symlink_to(current_bin)
     except Exception:
         pass
 
@@ -1093,11 +1102,13 @@ def cmd_watchdog():
         pass
 
     cleaned = False
+    stop_event = threading.Event()
 
     def on_exit(signum=None, frame=None):
         nonlocal cleaned
         if not cleaned:
             cleaned = True
+            stop_event.set()
             try:
                 reset_all()
             except Exception:
@@ -1120,12 +1131,11 @@ def cmd_watchdog():
     listener_thread = threading.Thread(target=socket2_listener_loop, daemon=True)
     listener_thread.start()
 
+    # Keep running until termination signal (SIGTERM from PR_SET_PDEATHSIG when parent dies, or SIGHUP/SIGINT)
     try:
-        while True:
-            chunk = sys.stdin.read(1024)
-            if not chunk:
-                break
-    except Exception:
+        while not stop_event.is_set():
+            stop_event.wait(timeout=1.0)
+    except (KeyboardInterrupt, SystemExit):
         pass
 
     on_exit()

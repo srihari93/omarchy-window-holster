@@ -13,18 +13,32 @@ Item {
   property var manifest: null
 
   readonly property string scriptPath: Qt.resolvedUrl("bin/omarchy-window-holster").toString().replace(/^file:\/\//, "")
+  property bool isDestroying: false
 
   // Crash & Quit Safety Watchdog:
-  // Monitors parent process (Quickshell) lifetime via stdin pipe and signals.
+  // Monitors parent process (Quickshell) lifetime via PR_SET_PDEATHSIG and signals.
   // When Quickshell or the plugin quits, crashes, or is killed,
   // the watchdog automatically restores all holstered windows to visible workspaces.
   // Also runs the socket2 background listener for click-outside auto-retract.
+  Timer {
+    id: restartTimer
+    interval: 1000
+    repeat: false
+    onTriggered: {
+      if (!root.isDestroying) {
+        watchdogProc.running = true
+      }
+    }
+  }
+
   Process {
     id: watchdogProc
     command: [root.scriptPath, "watchdog"]
     running: true
     onExited: function(exitCode) {
-      running = true
+      if (!root.isDestroying && exitCode !== 0) {
+        restartTimer.restart()
+      }
     }
   }
 
@@ -34,6 +48,7 @@ Item {
   }
 
   Component.onDestruction: {
+    root.isDestroying = true
     Quickshell.execDetached([root.scriptPath, "reset-all"])
   }
 

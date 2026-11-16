@@ -608,6 +608,7 @@ Item {
             Text {
               anchors.verticalCenter: parent.verticalCenter
               text: root.filterText ? (root.filterText + (root.cursorBlink ? "|" : " ")) : ("Type to filter holstered windows…" + (root.cursorBlink ? "|" : " "))
+              textFormat: Text.PlainText
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
               color: root.filterText ? root.foreground : Util.alpha(root.foreground, 0.45)
@@ -782,6 +783,7 @@ Item {
                 Text {
                   width: parent.width
                   text: modelData.title || "Window"
+                  textFormat: Text.PlainText
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.body
                   font.bold: true
@@ -792,6 +794,7 @@ Item {
                 Text {
                   width: parent.width
                   text: modelData.class || ""
+                  textFormat: Text.PlainText
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                   elide: Text.ElideRight
